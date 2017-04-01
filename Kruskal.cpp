@@ -15,11 +15,13 @@ namespace graph
 		cv::Vec2f c1, c2;
 		
 		v = n1->getPixelValue() - n2->getPixelValue;
-		c1 = n1->getPixelCoords();
-		c2 = n2->getPixelCoords();
-
+		
 		if (use_distance)
+		{
+			c1 = n1->getPixelCoords();
+			c2 = n2->getPixelCoords();
 			return cv::sqrt(v.dot(v) + (c1[0] - c2[0])*(c1[0] - c2[0]) + (c1[1] - c2[1])*(c1[1] - c2[1]));
+		}
 		else
 			return cv::sqrt(v.dot(v));
 	}
