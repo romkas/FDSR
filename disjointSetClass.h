@@ -1,16 +1,54 @@
 #pragma once
 #include <vector>
+#include <opencv2\core.hpp>
 
 namespace datastruct
 {
+	//template <typename T>
+	//struct SegmentationParams
+	//{
+	//
+	//};
+
 	template <typename T>
-	struct Node
+	struct Pixel
 	{
-		T value;
+		T pixvalue; // rgb or intensity
+		cv::Vec2f coords; // 2D vector with x coord and y coord
+	};
+	
+	template <typename T>
+	class Vertex
+	{
+		Vertex<T> *pparent;
+		int rank;
+		Pixel<T> pixel;
+		int segment_label;
+		std::vector<Vertex<T>*> adjacent; // adjacent vertices
+	public:
+		Vertex();
+		~Vertex();
+
+		void setParent(Vertex<T> *);
+		void setRank(int);
+		void setPixel(T&, float x, float y);
+		void setLabel(int);
+		void addAdjacent(Vertex<T>*);
+
+		Vertex<T>* getParent() const;
+		int getRank() const;
+		T& getPixelValue() const;
+		cv::Vec2f& getPixelCoords() const;
+		int getLabel() const;
+		std::vector<Vertex<T>*>& getAdjacent() const;
+
+
+
+		/*T value;
 		Node<T> *pparent;
 		int rank;
 		int id;
-		int xcoord, ycoord;
+		int xcoord, ycoord;*/
 	/*private:
 		T value;
 		Node<T> *pparent;
@@ -29,19 +67,27 @@ namespace datastruct
 		int getID() const;*/
 	};
 
+	template <typename T>
+	struct Edge
+	{
+		Vertex<T> *x, *y;
+		float weight;
+	};
+
 	template <class T>
 	class DisjointSet
 	{
-		std::vector<Node<T>*> roots;
-		std::vector<Node<T>*> node_memalloc;
-		int id_counter;
+		std::vector<Vertex<T>*> vertices;
+		//std::vector<Vertex<T>*> memalloc;
+		//int id_counter;
 
-		int bin_search(const Node<T>& x, int start, int end);
+		//int bin_search(const Vertex<T> *, int start, int end);
 	public:
 		DisjointSet();
 		~DisjointSet();
-		void MakeSet(T& x, int xcoord, int ycoord);
-		void Union(Node<T>& a, Node<T>& b);
-		Node<T>* FindSet(const Node<T>& x) const;
+		Vertex<T>* MakeSet(T& x, float xcoord, float ycoord);
+		void Union(Vertex<T> *, Vertex<T> *);
+		Vertex<T>* FindSet(const Vertex<T> *) const;
+		//Vertex<T>* getLastAdded() const;
 	};
 };
