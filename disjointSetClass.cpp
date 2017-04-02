@@ -77,6 +77,12 @@ namespace datastruct
 		return true;
 	}
 
+	template<typename T>
+	int HashTable<T>::getNumKeys() const
+	{
+		return this->num_keys;
+	}
+
 
 
 	template<typename T>

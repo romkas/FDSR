@@ -43,6 +43,7 @@ namespace datastruct
 		SegmentParams<T>* Search(Vertex<T>*, int*) const;
 		int Insert(SegmentParams<T>*);
 		bool Delete(int);
+		int getNumKeys() const;
 	};
 
 	template<typename T>
