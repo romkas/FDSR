@@ -47,19 +47,19 @@ namespace graph
 			for (int j = 0; j < w; j++)
 			{
 				Vertex<T> *temp, *temp1;
-				temp = vertices.MakeSet(image.at(j, i), j, i);
+				temp = vertices.MakeSet(image.at<T>(j, i), j, i);
 				//temp = vertices.getLastAdded();
 				if (v == 4)
 				{
 					if (j != w - 1)
 					{
-						temp->addAdjacent((temp1 = vertices.MakeSet(image.at(j + 1, i), j + 1, i)));
+						temp->addAdjacent((temp1 = vertices.MakeSet(image.at<T>(j + 1, i), j + 1, i)));
 						temp1->addAdjacent(temp);
 						add_edge(temp, temp1, image.type(), pixel_distance_metrics);
 					}
 					if (i != h - 1)
 					{
-						temp->addAdjacent((temp1 = vertices.MakeSet(image.at(j, i + 1), j, i + 1)));
+						temp->addAdjacent((temp1 = vertices.MakeSet(image.at<T>(j, i + 1), j, i + 1)));
 						temp1->addAdjacent(temp);
 						add_edge(temp, temp1, image.type(), pixel_distance_metrics);
 					}
@@ -144,7 +144,7 @@ namespace graph
 		{
 			v1 = vertices->vertices[t];
 			s1 = vertices->segments->Search(vertices->FindSet(v1), &m);
-			labels.at(v1->getPixelCoords()) = s1->label;
+			labels.at<T>(v1->getPixelCoords()) = s1->label;
 		}
 		
 		return vertices->segments->getNumKeys();
