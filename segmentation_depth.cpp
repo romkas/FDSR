@@ -1,3 +1,8 @@
+int main(int argc, char **argv)
+{
+
+}
+
 //#include <opencv2\core.hpp>
 //#include <opencv2\highgui.hpp>
 //

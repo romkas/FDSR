@@ -4,20 +4,55 @@
 
 namespace datastruct
 {
-	//template <typename T>
-	//struct SegmentationParams
-	//{
-	//
-	//};
+	template<typename T> struct Pixel;
+	template<typename T> struct Edge;
+	template<typename T> struct SegmentParams;
+	template<typename T> class Vertex;
+	template<typename T> class DisjointSet;
+	template<typename T> class HashTable;
+	
+	template<typename T>
+	struct SegmentParams
+	{
+		Vertex<T> *root;
+		int numelements;
+		float max_weight;
+	};
 
-	template <typename T>
+	template<typename T>
+	class HashTable
+	{
+		enum EntryType { NonEmpty, Empty, Deleted };
+		
+		template<typename T>
+		struct HashNode
+		{
+			SegmentParams<T> *p;
+			enum EntryType info;
+		};
+
+		HashNode<T> *table;
+		int size, num_keys;
+
+		int hash(Vertex<T> *pver, int n_probe);
+
+	public:
+		HashTable();
+		HashTable(int size);
+		~HashTable();
+		SegmentParams<T>* Search(Vertex<T>*, int*) const;
+		int Insert(SegmentParams<T>*);
+		bool Delete(int);
+	};
+
+	template<typename T>
 	struct Pixel
 	{
 		T pixvalue; // rgb or intensity
 		cv::Vec2f coords; // 2D vector with x coord and y coord
 	};
 	
-	template <typename T>
+	template<typename T>
 	class Vertex
 	{
 		Vertex<T> *pparent;
@@ -41,53 +76,26 @@ namespace datastruct
 		cv::Vec2f& getPixelCoords() const;
 		int getLabel() const;
 		std::vector<Vertex<T>*>& getAdjacent() const;
-
-
-
-		/*T value;
-		Node<T> *pparent;
-		int rank;
-		int id;
-		int xcoord, ycoord;*/
-	/*private:
-		T value;
-		Node<T> *pparent;
-		int rank;
-		int id;
-	public:
-		Node();
-		Node(T& val, Node* ppar = nullptr);
-		void setRank(int r);
-		int getRank() const;
-		void setParent(Node<T>* ppar);
-		Node<T>* getParent() const;
-		void setValue(T& val);
-		T& getValue() const;
-		void setID(int id);
-		int getID() const;*/
 	};
 
-	template <typename T>
+	template<typename T>
 	struct Edge
 	{
 		Vertex<T> *x, *y;
 		float weight;
 	};
 
-	template <class T>
+	template<typename T>
 	class DisjointSet
 	{
 		std::vector<Vertex<T>*> vertices;
-		//std::vector<Vertex<T>*> memalloc;
-		//int id_counter;
-
-		//int bin_search(const Vertex<T> *, int start, int end);
+		HashTable<T> segments;
 	public:
 		DisjointSet();
+		DisjointSet(int hashtable_size);
 		~DisjointSet();
 		Vertex<T>* MakeSet(T& x, float xcoord, float ycoord);
-		void Union(Vertex<T> *, Vertex<T> *);
+		void Union(Vertex<T> *, Vertex<T> *, float);
 		Vertex<T>* FindSet(const Vertex<T> *) const;
-		//Vertex<T>* getLastAdded() const;
 	};
 };

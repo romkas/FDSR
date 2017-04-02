@@ -2,14 +2,14 @@
 
 namespace graph
 {
-	template <class T>
+	template<typename T>
 	ImageGraph<T>::ImageGraph()
 	{
 
 	}
 
-	template <class T>
-	float ImageGraph<T>::calc_weigth(Vertex<T> *n1, Vertex<T> *n2, int im_type, bool use_distance)
+	template<typename T>
+	static float ImageGraph<T>::calc_weigth(Vertex<T> *n1, Vertex<T> *n2, int im_type, bool use_distance)
 	{
 		cv::Vec<float, (im_type == CV_32F) ? 1 : 3> v;
 		cv::Vec2f c1, c2;
@@ -26,7 +26,7 @@ namespace graph
 			return cv::sqrt(v.dot(v));
 	}
 
-	template<class T>
+	template<typename T>
 	void ImageGraph<T>::add_edge(Vertex<T>* pa, Vertex<T>* pb, int im_type, bool use_distance)
 	{
 		Edge<T> *pe = new Edge<T>;
@@ -35,11 +35,14 @@ namespace graph
 		pe->weight = calc_weigth(pa, pb, im_type, use_distance);
 	}
 
-	template <class T>
+	template<typename T>
 	ImageGraph<T>::ImageGraph(cv::Mat image, bool pixel_distance_metrics, int v)
 	{
 		cv::Size im_sz = image.size();
 		int w = im_sz.width, h = im_sz.height;
+
+		this->vertices = new DisjointSet(w * h);
+
 		for (int i = 0; i < h; i++)
 			for (int j = 0; j < w; j++)
 			{
@@ -83,11 +86,12 @@ namespace graph
 		);
 	}
 
-	template<class T>
+	template<typename T>
 	ImageGraph<T>::~ImageGraph()
 	{
 		for (int i = 0; i < edges.size(); i++)
 			delete edges[i];
+		delete vertices;
 	}
 
 	

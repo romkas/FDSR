@@ -12,9 +12,9 @@ namespace graph
 	class ImageGraph
 	{
 		std::vector<Edge<T>> edges;
-		DisjointSet<T> vertices;
+		DisjointSet<T> *vertices;
 
-		float calc_weigth(Vertex<T> *n1, Vertex<T> *n2, int im_type, bool use_distance);
+		static float calc_weigth(Vertex<T> *n1, Vertex<T> *n2, int im_type, bool use_distance);
 		void add_edge(Vertex<T>*, Vertex<T>*, int im_type, bool use_distance);
 		//datastruct::Node<T>* set_vertex(T& val, int x, int y);
 	public:
