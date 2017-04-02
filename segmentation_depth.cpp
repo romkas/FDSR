@@ -51,9 +51,9 @@ void ReadPFMFile(cv::Mat& img, const char* filename)
 					buf[c * 4 + 2] = tmp;
 				}
 			if (nc == 1)
-				img.at<float>(i, j) = -*((float *)buf);
+				img.at<float>(i, j) = *((float *)buf);
 			else
-				img.at<cv::Vec3f>(i, j) = -cv::Vec3f(*((float *)buf), *((float *)(buf + 4)), *((float *)(buf + 8)));
+				img.at<cv::Vec3f>(i, j) = cv::Vec3f(*((float *)buf), *((float *)(buf + 4)), *((float *)(buf + 8)));
 		}
 	fclose(f);
 }
