@@ -16,6 +16,7 @@ namespace datastruct
 	{
 		Vertex<T> *root;
 		int numelements;
+		int label;
 		float max_weight;
 	};
 
@@ -44,6 +45,7 @@ namespace datastruct
 		int Insert(SegmentParams<T>*);
 		bool Delete(int);
 		int getNumKeys() const;
+		SegmentParams<T>* getSegment(int) const;
 	};
 
 	template<typename T>
@@ -59,8 +61,8 @@ namespace datastruct
 		Vertex<T> *pparent;
 		int rank;
 		Pixel<T> pixel;
-		int segment_label;
-		std::vector<Vertex<T>*> adjacent; // adjacent vertices
+		//int segment_label;
+		//std::vector<Vertex<T>*> adjacent; // adjacent vertices
 	public:
 		Vertex();
 		~Vertex();
@@ -68,15 +70,15 @@ namespace datastruct
 		void setParent(Vertex<T> *);
 		void setRank(int);
 		void setPixel(T&, float x, float y);
-		void setLabel(int);
-		void addAdjacent(Vertex<T>*);
+		//void setLabel(int);
+		//void addAdjacent(Vertex<T>*);
 
 		Vertex<T>* getParent() const;
 		int getRank() const;
 		T& getPixelValue() const;
 		cv::Vec2f& getPixelCoords() const;
-		int getLabel() const;
-		std::vector<Vertex<T>*>& getAdjacent() const;
+		//int getLabel() const;
+		//std::vector<Vertex<T>*>& getAdjacent() const;
 	};
 
 	template<typename T>
@@ -89,14 +91,22 @@ namespace datastruct
 	template<typename T>
 	class DisjointSet
 	{
+		std::vector<int> hash_list;
+
+		int bin_search(int, int, int) const;
+		int find_hash_in_list(int) const;
+	public:
 		std::vector<Vertex<T>*> vertices;
 		HashTable<T> segments;
-	public:
+	
 		DisjointSet();
 		DisjointSet(int hashtable_size);
 		~DisjointSet();
-		Vertex<T>* MakeSet(T& x, float xcoord, float ycoord);
+		Vertex<T>* MakeSet(T &x, float xcoord, float ycoord);
 		void Union(Vertex<T> *, Vertex<T> *, float);
 		Vertex<T>* FindSet(const Vertex<T> *) const;
+		//HashTable<T>* getSegmentationTable() const;
+		//std::vector<Vertex<T>*>& getVertexList() const;
+		void makeLabels();
 	};
 };

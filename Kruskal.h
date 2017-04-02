@@ -3,12 +3,13 @@
 //#include <opencv2\core.hpp>
 
 #include <algorithm>
+#include <cmath>
 
 using namespace datastruct;
 
 namespace graph
 {	
-	template <class T>
+	template<typename T>
 	class ImageGraph
 	{
 		std::vector<Edge<T>> edges;
@@ -23,9 +24,9 @@ namespace graph
 		// between neighborhood pixels. once the graph is done, sorts the list of edges
 		// according to their weights (in ascending order)
 		// the vertice set is represented by disjoint-set data structure
-		ImageGraph(cv::Mat image, bool pixel_distance_metrics = false, int v = 4);
+		ImageGraph(cv::Mat &image, bool pixel_distance_metrics = false, int v = 4);
 		~ImageGraph();
-
-		//void KruskalSegmentation()
+		int getNumVertex() const;
+		int SegmentationKruskal(cv::Mat &labels, int segsize_param = 0, int k_param = 0);
 	};
 };

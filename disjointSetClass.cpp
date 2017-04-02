@@ -83,6 +83,12 @@ namespace datastruct
 		return this->num_keys;
 	}
 
+	template<typename T>
+	SegmentParams<T>* HashTable<T>::getSegment(int k) const
+	{
+		return table[k].p;
+	}
+
 
 
 	template<typename T>
@@ -104,17 +110,17 @@ namespace datastruct
 		this->pixel.coords = cv::Vec2f(x, y);
 	}
 
-	template<typename T>
-	void Vertex<T>::setLabel(int lab) { this->segment_label = lab; }
+	/*template<typename T>
+	void Vertex<T>::setLabel(int lab) { this->segment_label = lab; }*/
 
-	template<typename T>
+	/*template<typename T>
 	void Vertex<T>::addAdjacent(Vertex<T> *p)
 	{
 		for (int i = 0; i < adjacent.size(); i++)
 			if (adjacent[i] == p)
 				return;
 		adjacent.push_back(p);
-	}
+	}*/
 
 	template<typename T>
 	Vertex<T>* Vertex<T>::getParent() const { return pparent; }
@@ -128,13 +134,37 @@ namespace datastruct
 	template<typename T>
 	cv::Vec2f& Vertex<T>::getPixelCoords() const { return pixel->coords; }
 
-	template<typename T>
-	int Vertex<T>::getLabel() const { return segment_label; }
+	/*template<typename T>
+	int Vertex<T>::getLabel() const { return segment_label; }*/
+
+	/*template<typename T>
+	std::vector<Vertex<T>*>& Vertex<T>::getAdjacent() const { return adjacent; }*/
+
+	template <class T>
+	int DisjointSet<T>::bin_search(int x, int start, int end) const
+	{
+		int mid = (start + end) / 2;
+		if (start == end - 1)
+		{
+			if (hash_list[start] == x)
+				return start;
+			else
+				return -1;
+		}
+		else
+			if (hash_list[mid] > x)
+				return bin_search(x, start, mid);
+			else if (hash_list[mid] < x)
+				return bin_search(x, mid, end);
+			else
+				return mid;
+	}
 
 	template<typename T>
-	std::vector<Vertex<T>*>& Vertex<T>::getAdjacent() const { return adjacent; }
-
-
+	int DisjointSet<T>::find_hash_in_list(int h) const
+	{
+		return bin_search(h, 0, hash_list.size());
+	}
 
 	template<typename T>
 	DisjointSet<T>::DisjointSet() {	}
@@ -159,13 +189,13 @@ namespace datastruct
 		v->setParent(v);
 		v->setRank(0);
 		v->setPixel(T, xcoord, ycoord);
-		v->setLabel(-1);
+		//v->setLabel(-1);
 		vertices.push_back(v);
 
 		SegmentParams<T> *segment = new SegmentParams<T>;
 		segment->root = v;
 		segment->numelements = 1;
-		segments.push_back(segment);
+		hash_list.push_back(segments->Insert(segment));
 
 		return v;
 	}
@@ -180,6 +210,29 @@ namespace datastruct
 		}
 		return par;
 	}
+
+	template<typename T>
+	void DisjointSet<T>::makeLabels()
+	{
+		SegmentParams<T> *s;
+		for (int t = 0; t < hash_list.size(); t++)
+		{
+			s = segments->getSegment(t);
+			s->label = t + 1;
+		}
+	}
+
+	/*template<typename T>
+	HashTable<T>* DisjointSet<T>::getSegmentationTable() const
+	{
+		return &segments;
+	}
+
+	template<typename T>
+	std::vector<Vertex<T>*>& DisjointSet<T>::getVertexList() const
+	{
+		return vertices;
+	}*/
 
 	template<typename T>
 	void DisjointSet<T>::Union(Vertex<T> *pa, Vertex<T> *pb, float edge_weight)
@@ -199,6 +252,7 @@ namespace datastruct
 			segment1->max_weight = edge_weight;
 			segment1->numelements = segment1->numelements + segment2->numelements;
 			segments->Delete(z2);
+			hash_list.erase(hash_list.begin() + find_hash_in_list(z2));
 		}
 		else
 		{
@@ -208,6 +262,7 @@ namespace datastruct
 			segment2->max_weight = edge_weight;
 			segment2->numelements = segment2->numelements + segment1->numelements;
 			segments->Delete(z1);
+			hash_list.erase(hash_list.begin() + find_hash_in_list(z1));
 		} 
 	}
 };

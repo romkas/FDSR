@@ -36,7 +36,7 @@ namespace graph
 	}
 
 	template<typename T>
-	ImageGraph<T>::ImageGraph(cv::Mat image, bool pixel_distance_metrics, int v)
+	ImageGraph<T>::ImageGraph(cv::Mat &image, bool pixel_distance_metrics, int v)
 	{
 		cv::Size im_sz = image.size();
 		int w = im_sz.width, h = im_sz.height;
@@ -94,7 +94,59 @@ namespace graph
 		delete vertices;
 	}
 
+	template<typename T>
+	int ImageGraph<T>::getNumVertex() const
+	{
+		return vertices->vertices.size();
+	}
+
 	
-
-
+	template<typename T>
+	int ImageGraph<T>::SegmentationKruskal(cv::Mat &labels, int segsize_param, int k_param)
+	{
+		Vertex<T> *v1, *v2;
+		SegmentParams<T> *s1, *s2;
+		//HashTable<T> *segments = vertices->getSegmentationTable();
+		int m; // dummy
+		for (int i = 0; i < edges.size(); i++)
+		{
+			v1 = vertices->FindSet(edges[i].x);
+			v2 = vertices->FindSet(edges[i].y);
+			if (v1 != v2)
+			{
+				s1 = vertices->segments->Search(v1, &m);
+				s2 = vertices->segments->Search(v2, &m);
+				if (s1->numelements * s2->numelements == 1)
+					vertices->Union(v1, v2);
+				else if (s1->numelements == 1)
+				{
+					if (edges[i].weight <= s2->max_weight + (float)k_param / s2->numelements)
+						vertices->Union(v1, v2);
+				}
+				else if (s2->numelements == 1)
+				{
+					if (edges[i].weight <= s1->max_weight + (float)k_param / s1->numelements)
+						vertices->Union(v1, v2);
+				}
+				else
+				{
+					if (
+						edges[i].weight <=
+						std::min(s1->max_weight + (float)k_param / s1->numelements,
+							s2->max_weight + (float)k_param / s2->numelements)
+						)
+						vertices->Union(v1, v2);
+				}
+			}
+		}
+		int sz = getNumVertex();
+		for (int t = 0; t < sz; t++)
+		{
+			v1 = vertices->vertices[t];
+			s1 = vertices->segments->Search(vertices->FindSet(v1), &m);
+			labels.at(v1->getPixelCoords()) = s1->label;
+		}
+		
+		return vertices->segments->getNumKeys();
+	}
 };
