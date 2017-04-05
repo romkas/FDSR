@@ -146,15 +146,15 @@ namespace datastruct
 		int mid = (start + end) / 2;
 		if (start == end - 1)
 		{
-			if (hash_list[start] == x)
+			if (segments_list[start] == x)
 				return start;
 			else
 				return -1;
 		}
 		else
-			if (hash_list[mid] > x)
+			if (segments_list[mid] > x)
 				return bin_search(x, start, mid);
-			else if (hash_list[mid] < x)
+			else if (segments_list[mid] < x)
 				return bin_search(x, mid, end);
 			else
 				return mid;
@@ -163,7 +163,7 @@ namespace datastruct
 	template<typename T>
 	int DisjointSet<T>::find_hash_in_list(int h) const
 	{
-		return bin_search(h, 0, hash_list.size());
+		return bin_search(h, 0, segments_list.size());
 	}
 
 	template<typename T>
@@ -177,9 +177,9 @@ namespace datastruct
 	{
 		for (int i = 0; i < vertices.size(); i++)
 			delete vertices[i];
-		for (int i = 0; i < segments.size(); i++)
-			delete segments[i];
-		delete segments;
+		//for (int i = 0; i < segments.size(); i++)
+		//	delete segments[i];
+		//delete segments;
 	}
 
 	template<typename T>
@@ -195,7 +195,10 @@ namespace datastruct
 		SegmentParams<T> *segment = new SegmentParams<T>;
 		segment->root = v;
 		segment->numelements = 1;
-		hash_list.push_back(segments->Insert(segment));
+		segment->label = this->vertices.size() + 1;
+		segments_list.push_back(segments->Insert(segment));
+
+		//segments->Insert(segment)
 
 		return v;
 	}
@@ -211,7 +214,7 @@ namespace datastruct
 		return par;
 	}
 
-	template<typename T>
+	/*template<typename T>
 	void DisjointSet<T>::makeLabels()
 	{
 		SegmentParams<T> *s;
@@ -220,7 +223,7 @@ namespace datastruct
 			s = segments->getSegment(t);
 			s->label = t + 1;
 		}
-	}
+	}*/
 
 	/*template<typename T>
 	HashTable<T>* DisjointSet<T>::getSegmentationTable() const
@@ -248,21 +251,29 @@ namespace datastruct
 		
 		if (repr1->getRank() > repr2->getRank())
 		{
-			repr2->pparent = repr1;
+			repr2->setParent(repr1);
 			segment1->max_weight = edge_weight;
 			segment1->numelements = segment1->numelements + segment2->numelements;
+			//segment2->label = segment1->label;
 			segments->Delete(z2);
-			hash_list.erase(hash_list.begin() + find_hash_in_list(z2));
+			segments_list.erase(segments_list.begin() + find_hash_in_list(z2));
 		}
 		else
 		{
-			repr1->pparent = repr2;
+			repr1->setParent(repr2);
 			if (repr1->getRank() == repr2->getRank())
-				repr2->rank = repr2->rank + 1;
+				repr2->setRank(repr2->getRank() + 1);
 			segment2->max_weight = edge_weight;
 			segment2->numelements = segment2->numelements + segment1->numelements;
+			//segment1->label = segment2->label;
 			segments->Delete(z1);
-			hash_list.erase(hash_list.begin() + find_hash_in_list(z1));
+			segments_list.erase(segments_list.begin() + find_hash_in_list(z1));
 		} 
 	}
+
+	template<typename T>
+	int DisjointSet<T>::getNumVertices() const { return vertices.size(); }
+	
+	template<typename T>
+	int DisjointSet<T>::getNumSegments() const { return segments->getNumKeys(); }
 };

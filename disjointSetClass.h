@@ -91,13 +91,19 @@ namespace datastruct
 	template<typename T>
 	class DisjointSet
 	{
-		std::vector<int> hash_list;
+		// list of factually used hash table cells;
+		// used after segmentation is done, and we need to label pixels
+	public:
+		std::vector<int> segments_list; // needs to be a private attribute
 
 		int bin_search(int, int, int) const;
 		int find_hash_in_list(int) const;
-	public:
-		std::vector<Vertex<T>*> vertices;
-		HashTable<T> segments;
+	
+		// list of all vertices (pixels)
+		std::vector<Vertex<T>*> vertices; // needs to be a private attribute
+		// hash table represents the params of each segment
+		// as we need to quickly access those during Union()
+		HashTable<T> segments; // needs to be a private attribute
 	
 		DisjointSet();
 		DisjointSet(int hashtable_size);
@@ -108,5 +114,7 @@ namespace datastruct
 		//HashTable<T>* getSegmentationTable() const;
 		//std::vector<Vertex<T>*>& getVertexList() const;
 		void makeLabels();
+		int getNumVertices() const;
+		int getNumSegments() const;
 	};
 };

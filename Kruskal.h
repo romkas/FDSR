@@ -27,6 +27,6 @@ namespace graph
 		ImageGraph(cv::Mat &image, bool pixel_distance_metrics = false, int v = 4);
 		~ImageGraph();
 		int getNumVertex() const;
-		int SegmentationKruskal(cv::Mat &labels, int segsize_param = 0, int k_param = 0);
+		int SegmentationKruskal(cv::Mat &labels, int min_segment_size, bool join_segments, int k);
 	};
 };
