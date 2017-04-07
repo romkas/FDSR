@@ -58,6 +58,8 @@ void ReadPFMFile(cv::Mat& img, const char* filename)
 	fclose(f);
 }
 
+
+
 // argv[1] - image file
 // argv[2] - size of pixel vicinity
 // argv[3] - either use pixel distance or not
@@ -98,14 +100,49 @@ int main(int argc, char **argv)
 
 		cv::namedWindow("loaded image", cv::WINDOW_AUTOSIZE);
 		cv::imshow("loaded image", img_to_plot);
-		cv::waitKey(2000);
-		/*
-		graph::ImageGraph<float> G(input_img, 1, 4);
+		cv::waitKey(3000);
+		
+        int pixel_vicinity = std::atoi(argv[2]);
+        bool use_pixel_distance = (bool)std::atoi(argv[3]);
+        int min_segment_size = std::atoi(argv[4]);
+        int kruskal_k_param = std::atoi(argv[5]);
+
+        //DisjointSet<float> djset;
+        //graph::ImageGraph<float> G;
+        ImageGraph G = ImageGraph(img, use_pixel_distance , pixel_vicinity);
 		cv::Mat labels = -cv::Mat::ones(img_size, img_type);
 		int n_segments;
-		n_segments = G.SegmentationKruskal(labels, 0, 0);
-		*/
+		n_segments = G.SegmentationKruskal(labels, min_segment_size, kruskal_k_param);
+		
+        {
+            cv::Mat p[3];
+            img.copyTo(p[0]);
+            img.copyTo(p[1]);
+            img.copyTo(p[2]);
+            cv::Mat img_3channel(img_size, CV_32FC3);
+            cv::merge(p, 3, img_3channel);
 
+            cv::Mat r(img_size, CV_32FC1), g(img_size, CV_32FC1), b(img_size, CV_32FC1);
+            cv::extractChannel(img, r, 1);
+            cv::extractChannel(img, g, 2);
+            cv::extractChannel(img, b, 3);
+            cv::minMaxIdx(r, &min, &max);
+            r = (r - (float)min) / ((float)max - (float)min);
+            cv::minMaxIdx(g, &min, &max);
+            g = (g - (float)min) / ((float)max - (float)min);
+            cv::minMaxIdx(b, &min, &max);
+            b = (b - (float)min) / ((float)max - (float)min);
+            p[0] = r;
+            p[1] = g;
+            p[2] = b;
+            cv::merge(p, 3, img_to_plot);
+
+            cv::namedWindow("rgb image", cv::WINDOW_AUTOSIZE);
+            cv::imshow("rgb image", img_to_plot);
+            cv::waitKey(3000);
+
+
+        }
 	}
 	else
 		print_help();

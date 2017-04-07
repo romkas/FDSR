@@ -1,120 +1,114 @@
 #pragma once
 #include <vector>
+//#include <list>
 #include <opencv2\core.hpp>
+//#include <cstdint>
 
-namespace datastruct
+struct Pixel;
+struct Edge;
+struct SegmentParams;
+class Vertex;
+class DisjointSet;
+class HashTable;
+	
+struct SegmentParams
 {
-	template<typename T> struct Pixel;
-	template<typename T> struct Edge;
-	template<typename T> struct SegmentParams;
-	template<typename T> class Vertex;
-	template<typename T> class DisjointSet;
-	template<typename T> class HashTable;
-	
-	template<typename T>
-	struct SegmentParams
-	{
-		Vertex<T> *root;
-		int numelements;
-		int label;
-		float max_weight;
-	};
+	Vertex *root;
+    //std::list<Vertex<T>*> vertexlist;
+	int numelements;
+	int label;
+	float max_weight;
+};
 
-	template<typename T>
-	class HashTable
-	{
-		enum EntryType { NonEmpty, Empty, Deleted };
+class HashTable
+{
+	enum EntryType { NonEmpty, Empty, Deleted };
 		
-		template<typename T>
-		struct HashNode
-		{
-			SegmentParams<T> *p;
-			enum EntryType info;
-		};
-
-		HashNode<T> *table;
-		int size, num_keys;
-
-		int hash(Vertex<T> *pver, int n_probe);
-
-	public:
-		HashTable();
-		HashTable(int size);
-		~HashTable();
-		SegmentParams<T>* Search(Vertex<T>*, int*) const;
-		int Insert(SegmentParams<T>*);
-		bool Delete(int);
-		int getNumKeys() const;
-		SegmentParams<T>* getSegment(int) const;
-	};
-
-	template<typename T>
-	struct Pixel
+	struct HashNode
 	{
-		T pixvalue; // rgb or intensity
-		cv::Vec2f coords; // 2D vector with x coord and y coord
+		SegmentParams *p;
+		enum EntryType info;
 	};
+
+	HashNode *table;
+	size_t size, num_keys;
+
+	unsigned int hash(Vertex *pver, int n_probe) const;
+
+public:
+	HashTable();
+	HashTable(size_t size);
+	~HashTable();
+	SegmentParams* Search(Vertex*, int*) const;
+	unsigned int Insert(SegmentParams*);
+	bool Delete(unsigned int);
+	size_t getNumKeys() const;
+	SegmentParams* getSegment(unsigned int) const;
+};
+
+struct Pixel
+{
+	float pixvalue; // rgb or intensity
+	cv::Point coords; // 2D vector with x coord and y coord
+};
 	
-	template<typename T>
-	class Vertex
-	{
-		Vertex<T> *pparent;
-		int rank;
-		Pixel<T> pixel;
-		//int segment_label;
-		//std::vector<Vertex<T>*> adjacent; // adjacent vertices
-	public:
-		Vertex();
-		~Vertex();
+class Vertex
+{
+	Vertex *pparent;
+	int rank;
+	Pixel pixel;
+	//int segment_label;
+	//std::vector<Vertex<T>*> adjacent; // adjacent vertices
+public:
+	Vertex();
+	~Vertex();
 
-		void setParent(Vertex<T> *);
-		void setRank(int);
-		void setPixel(T&, float x, float y);
-		//void setLabel(int);
-		//void addAdjacent(Vertex<T>*);
+	void setParent(Vertex *);
+	void setRank(int);
+	void setPixel(float, float x, float y);
+	//void setLabel(int);
+	//void addAdjacent(Vertex<T>*);
 
-		Vertex<T>* getParent() const;
-		int getRank() const;
-		T& getPixelValue() const;
-		cv::Vec2f& getPixelCoords() const;
-		//int getLabel() const;
-		//std::vector<Vertex<T>*>& getAdjacent() const;
-	};
+	Vertex* getParent() const;
+	int getRank() const;
+	float getPixelValue() const;
+	const cv::Point& getPixelCoords() const;
+	//int getLabel() const;
+	//std::vector<Vertex<T>*>& getAdjacent() const;
+};
 
-	template<typename T>
-	struct Edge
-	{
-		Vertex<T> *x, *y;
-		float weight;
-	};
+struct Edge
+{
+	Vertex *x, *y;
+	float weight;
+};
 
-	template<typename T>
-	class DisjointSet
-	{
-		// list of factually used hash table cells;
-		// used after segmentation is done, and we need to label pixels
-	public:
-		std::vector<int> segments_list; // needs to be a private attribute
+class DisjointSet
+{
+	// list of factually used hash table cells;
+	// used after segmentation is done, and we need to label pixels
+public:
+	std::vector<int> segments_list; // needs to be a private attribute
 
-		int bin_search(int, int, int) const;
-		int find_hash_in_list(int) const;
+	int bin_search(int, int, int) const;
+	int find_hash_in_list(int) const;
 	
-		// list of all vertices (pixels)
-		std::vector<Vertex<T>*> vertices; // needs to be a private attribute
-		// hash table represents the params of each segment
-		// as we need to quickly access those during Union()
-		HashTable<T> segments; // needs to be a private attribute
+	// list of all vertices (pixels)
+	std::vector<Vertex*> vertices; // needs to be a private attribute
+	// hash table represents the params of each segment
+	// as we need to quickly access those during Union()
+	HashTable segments; // needs to be a private attribute
 	
-		DisjointSet();
-		DisjointSet(int hashtable_size);
-		~DisjointSet();
-		Vertex<T>* MakeSet(T &x, float xcoord, float ycoord);
-		void Union(Vertex<T> *, Vertex<T> *, float);
-		Vertex<T>* FindSet(const Vertex<T> *) const;
-		//HashTable<T>* getSegmentationTable() const;
-		//std::vector<Vertex<T>*>& getVertexList() const;
-		void makeLabels();
-		int getNumVertices() const;
-		int getNumSegments() const;
-	};
+	DisjointSet();
+	DisjointSet(size_t hashtable_size);
+	~DisjointSet();
+	Vertex* MakeSet(float x, float xcoord, float ycoord);
+	void Union(Vertex *, Vertex *, float);
+	Vertex* FindSet(const Vertex *) const;
+    //void DeleteSet(int s);
+	//HashTable<T>* getSegmentationTable() const;
+	//std::vector<Vertex<T>*>& getVertexList() const;
+	//void makeLabels();
+	int getNumVertices() const;
+	int getNumSegments() const;
 };
