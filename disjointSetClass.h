@@ -88,10 +88,10 @@ class DisjointSet
 	// list of factually used hash table cells;
 	// used after segmentation is done, and we need to label pixels
 public:
-	std::vector<int> segments_list; // needs to be a private attribute
+	//std::vector<int> segments_list; // needs to be a private attribute
 
-	int bin_search(int, int, int) const;
-	int find_hash_in_list(int) const;
+	//int bin_search(int, int, int) const;
+	//int find_hash_in_list(int) const;
 	
 	// list of all vertices (pixels)
 	std::vector<Vertex*> vertices; // needs to be a private attribute

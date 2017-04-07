@@ -127,29 +127,29 @@ int Vertex<T>::getLabel() const { return segment_label; }*/
 /*template<typename T>
 std::vector<Vertex<T>*>& Vertex<T>::getAdjacent() const { return adjacent; }*/
 
-int DisjointSet::bin_search(int x, int start, int end) const
-{
-	int mid = (start + end) / 2;
-	if (start == end - 1)
-	{
-		if (segments_list[start] == x)
-			return start;
-		else
-			return -1;
-	}
-	else
-		if (segments_list[mid] > x)
-			return bin_search(x, start, mid);
-		else if (segments_list[mid] < x)
-			return bin_search(x, mid, end);
-		else
-			return mid;
-}
+//int DisjointSet::bin_search(int x, int start, int end) const
+//{
+//	int mid = (start + end) / 2;
+//	if (start == end - 1)
+//	{
+//		if (segments_list[start] == x)
+//			return start;
+//		else
+//			return -1;
+//	}
+//	else
+//		if (segments_list[mid] > x)
+//			return bin_search(x, start, mid);
+//		else if (segments_list[mid] < x)
+//			return bin_search(x, mid, end);
+//		else
+//			return mid;
+//}
 
-int DisjointSet::find_hash_in_list(int h) const
-{
-	return bin_search(h, 0, segments_list.size());
-}
+//int DisjointSet::find_hash_in_list(int h) const
+//{
+//	return bin_search(h, 0, segments_list.size());
+//}
 
 DisjointSet::DisjointSet() {	}
 
@@ -159,12 +159,12 @@ DisjointSet::~DisjointSet()
 {
 	for (int i = 0; i < vertices.size(); i++)
 		delete vertices[i];
-    for (int i = 0; i < segments_list.size(); i++)
-        delete segments.getSegment(segments_list[i]);
+    //for (int i = 0; i < segments_list.size(); i++)
+    //    delete segments.getSegment(segments_list[i]);
 	//delete segments;
 }
 
-Vertex* DisjointSet::MakeSet(float x, float xcoord, float ycoord)
+Vertex* DisjointSet::MakeSet(float x, float ycoord, float xcoord)
 {
 	Vertex *v = new Vertex;
 	v->setParent(v);
@@ -178,9 +178,9 @@ Vertex* DisjointSet::MakeSet(float x, float xcoord, float ycoord)
 	segment->numelements = 1;
     //segment->vertexlist.push_back(v);
 	segment->label = this->vertices.size();
-	segments_list.push_back(segments.Insert(segment));
-
-	//segments->Insert(segment)
+	
+	//segments_list.push_back(segments.Insert(segment));
+	segments.Insert(segment);
 
 	return v;
 }
@@ -243,7 +243,7 @@ void DisjointSet::Union(Vertex *pa, Vertex *pb, float edge_weight)
 		segment1->numelements = segment1->numelements + segment2->numelements;
 		//segment2->label = segment1->label;
 		segments.Delete(z2);
-		segments_list.erase(segments_list.begin() + find_hash_in_list(z2));
+		//segments_list.erase(segments_list.begin() + find_hash_in_list(z2));
 	}
 	else
 	{
@@ -254,7 +254,7 @@ void DisjointSet::Union(Vertex *pa, Vertex *pb, float edge_weight)
 		segment2->numelements = segment2->numelements + segment1->numelements;
 		//segment1->label = segment2->label;
 		segments.Delete(z1);
-		segments_list.erase(segments_list.begin() + find_hash_in_list(z1));
+		//segments_list.erase(segments_list.begin() + find_hash_in_list(z1));
 	} 
 }
 

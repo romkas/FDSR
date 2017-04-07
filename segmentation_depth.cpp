@@ -77,30 +77,10 @@ int main(int argc, char **argv)
 		int img_type = img.type();
 
 		double min, max;
-		if (img_type == CV_32FC1)
-		{
-			cv::minMaxIdx(img, &min, &max);
-			img_to_plot = (img - (float)min) / ((float)max - (float)min);
-		}
-		else
-		{
-			cv::Mat r(img_size, CV_32FC1), g(img_size, CV_32FC1), b(img_size, CV_32FC1);
-			cv::extractChannel(img, r, 1);
-			cv::extractChannel(img, g, 2);
-			cv::extractChannel(img, b, 3);
-			cv::minMaxIdx(r, &min, &max);
-			r = (r - (float)min) / ((float)max - (float)min);
-			cv::minMaxIdx(g, &min, &max);
-			g = (g - (float)min) / ((float)max - (float)min);
-			cv::minMaxIdx(b, &min, &max);
-			b = (b - (float)min) / ((float)max - (float)min);
-			cv::Mat p[3]; p[0] = r; p[1] = g; p[2] = b;
-			cv::merge(p, 3, img_to_plot);
-		}
-
+		cv::minMaxIdx(img, &min, &max);
+		img_to_plot = (img - (float)min) / ((float)max - (float)min);
 		cv::namedWindow("loaded image", cv::WINDOW_AUTOSIZE);
 		cv::imshow("loaded image", img_to_plot);
-		cv::waitKey(3000);
 		
         int pixel_vicinity = std::atoi(argv[2]);
         bool use_pixel_distance = (bool)std::atoi(argv[3]);
@@ -110,19 +90,59 @@ int main(int argc, char **argv)
         //DisjointSet<float> djset;
         //graph::ImageGraph<float> G;
         ImageGraph G = ImageGraph(img, use_pixel_distance , pixel_vicinity);
-		cv::Mat labels = -cv::Mat::ones(img_size, img_type);
+		cv::Mat labels = -cv::Mat::ones(img_size, CV_32SC1);
 		int n_segments;
 		n_segments = G.SegmentationKruskal(labels, min_segment_size, kruskal_k_param);
 		
+		printf("Found segments: %4i\n", n_segments);
+
         {
             cv::Mat p[3];
-            img.copyTo(p[0]);
-            img.copyTo(p[1]);
-            img.copyTo(p[2]);
+            img_to_plot.copyTo(p[0]);
+			img_to_plot.copyTo(p[1]);
+			img_to_plot.copyTo(p[2]);
             cv::Mat img_3channel(img_size, CV_32FC3);
             cv::merge(p, 3, img_3channel);
+			img_3channel.convertTo(img, CV_8UC3, 255.);
 
-            cv::Mat r(img_size, CV_32FC1), g(img_size, CV_32FC1), b(img_size, CV_32FC1);
+			// paint pixels according to segment labels
+			std::vector<int> segment_labels;
+			std::vector<cv::Vec3b> colors;
+			int pos_in_color_vector;
+			cv::RNG rng;
+			for (int i = 0; i < img_3channel.rows; i++)
+				for (int j = 0; j < img_3channel.cols; j++)
+				{
+					pos_in_color_vector = -1;
+					for (int t = 0; t < segment_labels.size(); t++)
+					{
+						if (labels.at<int>(i, j) == segment_labels[t])
+						{
+							pos_in_color_vector = t;
+							break;
+						}
+					}
+					if (pos_in_color_vector == -1)
+					{
+						// generate new color for given segment
+						int a = 120, b = 256;
+						cv::Vec3b pixcolor = cv::Vec3b(rng.uniform(a, b), rng.uniform(a, b), rng.uniform(a, b));
+						segment_labels.push_back(labels.at<int>(i, j));
+						colors.push_back(pixcolor);
+						pos_in_color_vector = segment_labels.size() - 1;
+					}
+					else
+					{
+						// use one of the colors calculated before
+					}
+					img_3channel.at<cv::Vec3b>(i, i) = colors[pos_in_color_vector];
+				}
+
+			cv::namedWindow("segmented image", cv::WINDOW_AUTOSIZE);
+			cv::imshow("segmented image", img_3channel);
+			cv::waitKey();
+
+            /*cv::Mat r(img_size, CV_32FC1), g(img_size, CV_32FC1), b(img_size, CV_32FC1);
             cv::extractChannel(img, r, 1);
             cv::extractChannel(img, g, 2);
             cv::extractChannel(img, b, 3);
@@ -139,7 +159,7 @@ int main(int argc, char **argv)
 
             cv::namedWindow("rgb image", cv::WINDOW_AUTOSIZE);
             cv::imshow("rgb image", img_to_plot);
-            cv::waitKey(3000);
+            cv::waitKey();*/
 
 
         }
