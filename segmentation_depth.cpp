@@ -81,6 +81,7 @@ int main(int argc, char **argv)
 		img_to_plot = (img - (float)min) / ((float)max - (float)min);
 		cv::namedWindow("loaded image", cv::WINDOW_AUTOSIZE);
 		cv::imshow("loaded image", img_to_plot);
+		cv::waitKey(1000);
 		
         int pixel_vicinity = std::atoi(argv[2]);
         bool use_pixel_distance = (bool)std::atoi(argv[3]);
@@ -94,20 +95,21 @@ int main(int argc, char **argv)
 		int n_segments;
 		n_segments = G.SegmentationKruskal(labels, min_segment_size, kruskal_k_param);
 		
-		printf("Found segments: %4i\n", n_segments);
+		//printf("Found segments: %4i\n", n_segments);
 
         {
             cv::Mat p[3];
+			cv::Mat img_3channel(img_size, CV_32FC3);
             img_to_plot.copyTo(p[0]);
 			img_to_plot.copyTo(p[1]);
 			img_to_plot.copyTo(p[2]);
-            cv::Mat img_3channel(img_size, CV_32FC3);
-            cv::merge(p, 3, img_3channel);
-			img_3channel.convertTo(img, CV_8UC3, 255.);
+			p[0].convertTo(p[0], CV_8UC1, 255.);
+			p[1].convertTo(p[1], CV_8UC1, 255.);
+			p[2].convertTo(p[2], CV_8UC1, 255.);
 
 			// paint pixels according to segment labels
 			std::vector<int> segment_labels;
-			std::vector<cv::Vec3b> colors;
+			std::vector<unsigned char> red, green, blue;
 			int pos_in_color_vector;
 			cv::RNG rng;
 			for (int i = 0; i < img_3channel.rows; i++)
@@ -122,22 +124,29 @@ int main(int argc, char **argv)
 							break;
 						}
 					}
-					if (pos_in_color_vector == -1)
+					if (labels.at<int>(i, j) != -1 && pos_in_color_vector == -1)
 					{
 						// generate new color for given segment
 						int a = 120, b = 256;
-						cv::Vec3b pixcolor = cv::Vec3b(rng.uniform(a, b), rng.uniform(a, b), rng.uniform(a, b));
+						red.push_back(rng.uniform(a, b));
+						green.push_back(rng.uniform(a, b));
+						blue.push_back(rng.uniform(a, b));
 						segment_labels.push_back(labels.at<int>(i, j));
-						colors.push_back(pixcolor);
 						pos_in_color_vector = segment_labels.size() - 1;
 					}
 					else
 					{
 						// use one of the colors calculated before
 					}
-					img_3channel.at<cv::Vec3b>(i, i) = colors[pos_in_color_vector];
+					if (pos_in_color_vector != -1)
+					{
+						p[0].at<unsigned char>(i, j) = red[pos_in_color_vector];
+						p[1].at<unsigned char>(i, j) = green[pos_in_color_vector];
+						p[2].at<unsigned char>(i, j) = blue[pos_in_color_vector];
+					}
 				}
 
+			cv::merge(p, 3, img_3channel);
 			cv::namedWindow("segmented image", cv::WINDOW_AUTOSIZE);
 			cv::imshow("segmented image", img_3channel);
 			cv::waitKey();

@@ -98,7 +98,7 @@ void Vertex::setRank(int r) { this->rank = r; }
 void Vertex::setPixel(float pixval, float x, float y)
 {
 	this->pixel.pixvalue = pixval;
-	this->pixel.coords = cv::Point((int)x, (int)y);
+	this->pixel.coords = cv::Vec2i((int)x, (int)y);
 }
 
 /*template<typename T>
@@ -119,7 +119,7 @@ int Vertex::getRank() const { return rank; }
 
 float Vertex::getPixelValue() const { return pixel.pixvalue; }
 
-const cv::Point& Vertex::getPixelCoords() const { return pixel.coords; }
+const cv::Vec2i& Vertex::getPixelCoords() const { return pixel.coords; }
 
 /*template<typename T>
 int Vertex<T>::getLabel() const { return segment_label; }*/
@@ -164,7 +164,7 @@ DisjointSet::~DisjointSet()
 	//delete segments;
 }
 
-Vertex* DisjointSet::MakeSet(float x, float ycoord, float xcoord)
+Vertex* DisjointSet::MakeSet(float x, float xcoord, float ycoord)
 {
 	Vertex *v = new Vertex;
 	v->setParent(v);
@@ -225,7 +225,7 @@ std::vector<Vertex<T>*>& DisjointSet<T>::getVertexList() const
 	return vertices;
 }*/
 
-void DisjointSet::Union(Vertex *pa, Vertex *pb, float edge_weight)
+void DisjointSet::Union(Vertex *pa, Vertex *pb, double edge_weight)
 {
 	Vertex *repr1, *repr2;
 	repr1 = FindSet(pa);

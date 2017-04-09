@@ -17,7 +17,7 @@ struct SegmentParams
     //std::list<Vertex<T>*> vertexlist;
 	int numelements;
 	int label;
-	float max_weight;
+	double max_weight;
 };
 
 class HashTable
@@ -49,7 +49,7 @@ public:
 struct Pixel
 {
 	float pixvalue; // rgb or intensity
-	cv::Point coords; // 2D vector with x coord and y coord
+	cv::Vec2i coords; // 2D vector with x coord and y coord
 };
 	
 class Vertex
@@ -65,14 +65,14 @@ public:
 
 	void setParent(Vertex *);
 	void setRank(int);
-	void setPixel(float, float x, float y);
+	void setPixel(float, float, float);
 	//void setLabel(int);
 	//void addAdjacent(Vertex<T>*);
 
 	Vertex* getParent() const;
 	int getRank() const;
 	float getPixelValue() const;
-	const cv::Point& getPixelCoords() const;
+	const cv::Vec2i& getPixelCoords() const;
 	//int getLabel() const;
 	//std::vector<Vertex<T>*>& getAdjacent() const;
 };
@@ -80,7 +80,7 @@ public:
 struct Edge
 {
 	Vertex *x, *y;
-	float weight;
+	double weight;
 };
 
 class DisjointSet
@@ -103,7 +103,7 @@ public:
 	DisjointSet(size_t hashtable_size);
 	~DisjointSet();
 	Vertex* MakeSet(float x, float xcoord, float ycoord);
-	void Union(Vertex *, Vertex *, float);
+	void Union(Vertex *, Vertex *, double);
 	Vertex* FindSet(const Vertex *) const;
     //void DeleteSet(int s);
 	//HashTable<T>* getSegmentationTable() const;
