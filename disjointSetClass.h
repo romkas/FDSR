@@ -2,25 +2,45 @@
 #include <vector>
 #include <list>
 #include <opencv2\core.hpp>
-//#include <cstdint>
 
+
+struct Pixel;
+struct Edge;
+struct Node;
+struct Segment;
+class HashTable;
+class DisjointSet;
+
+struct Pixel
+{
+#if USE_COLOR == 1
+	cv::Vec3f pixvalue; // rgb
+#else
+	float pixvalue; // intensity
+#endif
+	cv::Vec3f coords;
+	Node *pnode;
+};
+
+struct Edge
+{
+	Pixel *x, *y;
+	double weight;
+};
 
 struct Node
 {
 	Node *pparent;
 	int rank;
-	//Pixel *pixel;
-	//int segment_label;
 };
 
 struct Segment
 {
 	Node *root;
-	//std::list<Vertex<T>*> vertexlist;
 	int numelements;
 	int label;
 	double max_weight;
-    std::list<Node*> nodes;
+    std::list<Pixel*> segment;
 };
 
 class HashTable
@@ -46,35 +66,17 @@ public:
 	unsigned int Insert(Segment *);
 	bool Delete(unsigned int);
 	size_t getNumKeys() const;
-	Segment* getSegment(unsigned int) const;
+	//Segment* getSegment(unsigned int) const;
 };
 
 class DisjointSet
 {
-	// list of factually used hash table cells;
-	// used after segmentation is done, and we need to label pixels
-
-	//std::vector<int> segments_list; // needs to be a private attribute
-
-	//int bin_search(int, int, int) const;
-	//int find_hash_in_list(int) const;
-	
-	// list of all vertices (pixels)
-	std::vector<Node*> set; // needs to be a private attribute
-	// hash table represents the params of each segment
-	// as we need to quickly access those during Union()
-	//HashTable segments; // needs to be a private attribute
+	std::vector<Node*> set;
 public:
 	DisjointSet();
-	//DisjointSet(size_t hashtable_size);
 	~DisjointSet();
 	Node* MakeSet();
 	Node* Union(Node *, Node *);
 	Node* FindSet(const Node *) const;
-    //void DeleteSet(int s);
-	//HashTable<T>* getSegmentationTable() const;
-	//std::vector<Vertex<T>*>& getVertexList() const;
-	//void makeLabels();
 	int getNumElements() const;
-	//int getNumSegments() const;
 };

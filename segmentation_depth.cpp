@@ -3,6 +3,7 @@
 
 #include <opencv2\core.hpp>
 #include <opencv2\highgui.hpp>
+#include <opencv2\imgproc.hpp>
 
 #include <iostream>
 //#include <fstream>
@@ -12,7 +13,10 @@ using namespace std;
 
 void print_help()
 {
-	printf("Program usage: ...\n");
+	printf("Program usage:\narg1 - size of pixel vicinity (4, 8, 24, 48)\narg2 - metric function for edge weight calculation\n"
+		"arg3 - Kruskal k parameter\narg4 - segment size threshold\narg5 - target number of segments\n"
+		"arg6 - segment size threshold (for visualization)\narg7 - is input image either color or grayscale\n"
+		"arg8 - input image file path\narg9 - is depth map data given\narg10 - depth data file path");
 }
 
 void ReadPFMFile(cv::Mat& img, const char* filename)
@@ -58,42 +62,93 @@ void ReadPFMFile(cv::Mat& img, const char* filename)
 	fclose(f);
 }
 
+//void plot_image(cv::Mat &img, int im_type, char *title)
+//{
+//
+//}
 
+//int resize_image(cv::Mat &image_in, cv::Mat &out, size_t w, size_t h)
+//{
+//	int w = img.size().width, h = img.size().height;
+//	if (!strcmp(argv[3], "2"))
+//	{
+//		w /= 2; h /= 2;
+//	}
+//	else if (!strcmp(argv[3], "4"))
+//	{
+//		w /= 4; h /= 4;
+//	}
+//	else if (!strcmp(argv[3], "0"))
+//	{
+//		w = atoi(argv[4]); h = atoi(argv[5]);
+//	}
+//	else
+//		exit(3);
+//	cv::Size imsz = cv::Size(w, h);
+//	cv::resize(img, img_out, imsz, 0, 0, CV_INTER_LINEAR);
+//}
 
-// argv[1] - image file
-// argv[2] - size of pixel vicinity
-// argv[3] - either use pixel distance or not
-// argv[4] - min segment size
-// argv[5] - Kruskal k parameter
 int main(int argc, char **argv)
 {
-	if (argc >= 6)
+	if (argc >= 9)
 	{
-		cv::Mat img, img_to_plot;
-		ReadPFMFile(img, argv[1]);
+		int c = 1;
+		int param_pixel_vicinity = std::atoi(argv[c++]);
+		int param_metrics_flag = std::atoi(argv[c++]);
+		double param_k = std::atoi(argv[c++]);
+		int param_min_segment_size = std::atoi(argv[c++]);
+		int param_target_num_segments = std::atoi(argv[c++]);
+		int param_segment_size_vis = std::atoi(argv[c++]);
+		//bool param_color = (bool)std::atoi(argv[c++]);
+		
+		cv::Mat img, img_to_plot, depth;
+#if USE_COLOR == 1
+		img = cv::imread(argv[c++], cv::IMREAD_COLOR);
+#else
+		img = cv::imread(argv[c++], cv::IMREAD_GRAYSCALE);
+#endif
+
+		bool param_depthdata = (bool)std::atoi(argv[c++]);
+		if (param_depthdata)
+			ReadPFMFile(depth, argv[c++]);
+		
+		int target_w = 320, target_h = 240;
+		cv::resize(img, img, cv::Size(target_w, target_h), 0, 0, cv::INTER_LINEAR);
+		if (param_depthdata)
+			cv::resize(depth, depth, cv::Size(target_w, target_h), 0, 0, cv::INTER_LINEAR);
 
 		cv::Size img_size = img.size();
 		int width = img_size.width, height = img_size.height;
 		int img_type = img.type();
 
-		double min, max;
-		cv::minMaxIdx(img, &min, &max);
-		img_to_plot = (img - (float)min) / ((float)max - (float)min);
-		cv::namedWindow("loaded image", cv::WINDOW_AUTOSIZE);
-		cv::imshow("loaded image", img_to_plot);
-		cv::waitKey(1000);
-		
-        int pixel_vicinity = std::atoi(argv[2]);
-        bool use_pixel_distance = (bool)std::atoi(argv[3]);
-        int min_segment_size = std::atoi(argv[4]);
-        int kruskal_k_param = std::atoi(argv[5]);
-
-        //DisjointSet<float> djset;
-        //graph::ImageGraph<float> G;
-        ImageGraph G = ImageGraph(img, use_pixel_distance , pixel_vicinity);
+		{
+			img.convertTo(img_to_plot, CV_8UC3, 255.);
+			double min, max;
+			cv::Mat p[3];
+			cv::split(img_to_plot, p);
+			cv::minMaxIdx(p[0], &min, &max);
+			p[0] = (p[0] - (float)min) / ((float)max - (float)min);
+			cv::minMaxIdx(p[1], &min, &max);
+			p[1] = (p[1] - (float)min) / ((float)max - (float)min);
+			cv::minMaxIdx(p[2], &min, &max);
+			p[2] = (p[2] - (float)min) / ((float)max - (float)min);
+			cv::merge(p, 3, img_to_plot);
+			cv::namedWindow("source image", cv::WINDOW_AUTOSIZE);
+			cv::imshow("source image", img_to_plot);
+			cv::waitKey(1000);
+			if (param_depthdata)
+			{
+				cv::minMaxIdx(depth, &min, &max);
+				img_to_plot = (depth - (float)min) / ((float)max - (float)min);
+				cv::namedWindow("source depth", cv::WINDOW_AUTOSIZE);
+				cv::imshow("source depth", img_to_plot);
+				cv::waitKey(1000);
+			}
+		}
+        ImageGraph G = ImageGraph(img, depth, param_pixel_vicinity, param_metrics_flag, 1.7);
 		cv::Mat labels = -cv::Mat::ones(img_size, CV_32SC1);
-		int n_segments;
-		n_segments = G.SegmentationKruskal(labels, min_segment_size, kruskal_k_param);
+		//int n_segments;
+		G.SegmentationKruskal(labels, param_k, param_min_segment_size, param_segment_size_vis, param_target_num_segments);
 		
 		//printf("Found segments: %4i\n", n_segments);
 

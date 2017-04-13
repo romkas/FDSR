@@ -2,15 +2,13 @@
 
 #include <cstdio>
 
-ImageGraph::ImageGraph()
-{
 
-}
+ImageGraph::ImageGraph() { }
 
 #if USE_COLOR == 1
 Pixel* ImageGraph::add_vertex(cv::Vec3f &val, float x, float y, float z)
 #else
-Pixel* ImageGraph::add_vertex(float val, float xcoord, float ycoord, float zcoord)
+Pixel* ImageGraph::add_vertex(float val, float x, float y, float z)
 #endif
 {
 	Node *v = partition->MakeSet();
@@ -24,35 +22,17 @@ Pixel* ImageGraph::add_vertex(float val, float xcoord, float ycoord, float zcoor
     Segment *segment = new Segment;
 	segment->root = v;
 	segment->numelements = 1;
-	//segment->vertexlist.push_back(v);
 	segment->label = pixels.size();
-    
-    segment->nodes.push_back(v);
+    segment->segment.push_back(p);
 
-	//segments_list.push_back(segments.Insert(segment));
 	segmentation_data->Insert(segment);
-
-	//SegmentParams *segment1, *segment2;
-	//int z1, z2;
-	//segment1 = segments.Search(repr1, &z1);
-	//segment2 = segments.Search(repr2, &z2);
-
-	//segment1->max_weight = edge_weight;
-	//segment1->numelements = segment1->numelements + segment2->numelements;
-	////segment2->label = segment1->label;
-	//segments.Delete(z2);
-	////segments_list.erase(segments_list.begin() + find_hash_in_list(z2));
-
-	//segment2->max_weight = edge_weight;
-	//segment2->numelements = segment2->numelements + segment1->numelements;
-	////segment1->label = segment2->label;
-	//segments.Delete(z1);
-	////segments_list.erase(segments_list.begin() + find_hash_in_list(z1));
+	
+	return p;
 }
 
 void ImageGraph::merge_segments(Pixel *p1, Pixel *p2, double w, double k)
 {
-    Segment *seg1, *seg2;
+	Segment *seg1, *seg2;
     int z1, z2;
     Node *repr1 = partition->FindSet(p1->pnode),
         *repr2 = partition->FindSet(p2->pnode);
@@ -84,7 +64,20 @@ void ImageGraph::merge_segments(Pixel *p1, Pixel *p2, double w, double k)
             )
             temp = partition->Union(repr1, repr2);
     }
-
+	if (temp == seg1->root)
+	{
+		seg1->max_weight = w;
+		seg1->numelements += seg2->numelements;
+		seg1->segment.splice(seg1->segment.end(), seg2->segment);
+		segmentation_data->Delete(z2);
+	}
+	else
+	{
+		seg2->max_weight = w;
+		seg2->numelements += seg1->numelements;
+		seg2->segment.splice(seg2->segment.end(), seg1->segment);
+		segmentation_data->Delete(z1);
+	}
 }
 
 double ImageGraph::calc_weight(Pixel *n1, Pixel *n2)
@@ -131,14 +124,68 @@ inline Pixel* ImageGraph::get_vertex_by_index(int i, int j)
 	return pixels[i * this->im_wid + j];
 }
 
+void ImageGraph::make_labels(cv::Mat &labels, double k, int min_segment_size, int num_segments_total,
+	int *num_segments_under_threshold,
+	int *num_mergers,
+	int *num_pixels_under_threshold)
+{
+	Pixel *p;
+	Segment *s;
+	cv::Vec2i coords;
 
-ImageGraph::ImageGraph(cv::Mat &image, bool pixel_distance_metrics, int v)
+	int c = 0, pos, m;
+	// -- segment statistics
+	std::vector<int> segment_labels;
+	std::vector<int> segment_sizes;
+	//
+
+	if (num_segments_total > 0) // merge segments down to num_segments_total
+	{
+
+	}
+	else
+	{
+
+	}
+
+	for (int t = 0; t < this->nvertex; t++)
+	{
+		p = pixels[t];
+		s = segmentation_data->Search(partition->FindSet(p->pnode), &m);
+		coords = cv::Vec2i((int)p->coords[0], (int)p->coords[1]);
+		if (s->numelements >= min_segment_size)
+			labels.at<int>(coords) = s->label;
+		else
+			c++;
+
+		pos = -1;
+		for (int w = 0; w < segment_labels.size(); w++)
+		{
+			if (labels.at<int>(coords) == segment_labels[w])
+			{
+				pos = w;
+				break;
+			}
+		}
+		if (pos == -1)
+		{
+			segment_labels.push_back(labels.at<int>(coords));
+			segment_sizes.push_back(1);
+		}
+		else
+		{
+			segment_sizes[pos]++;
+		}
+	}
+}
+
+
+ImageGraph::ImageGraph(cv::Mat &image, cv::Mat &depth, int v, int flag_metrics, double zcoord_weight)
 {
 	this->im_wid = image.cols;
 	this->im_hgt = image.rows;
 	this->nvertex = im_wid * im_hgt;
 	int im_type = image.type();
-	//this->vertices = new DisjointSet(nvertex);
     this->partition = new DisjointSet();
     this->segmentation_data = new HashTable(nvertex);
 
@@ -154,32 +201,32 @@ ImageGraph::ImageGraph(cv::Mat &image, bool pixel_distance_metrics, int v)
 		for (int i = 0; i < im_hgt; i++)
 			for (int j = 0; j < im_wid; j++)
 			{
-#if USE_COLOR == 1
+				#if USE_COLOR == 1
                 temp = add_vertex(image.at<cv::Vec3f>(i, j), i, j);
-#else
+				#else
                 temp = add_vertex(image.at<float>(i, j), i, j);
-#endif
+				#endif
 				if (j)
-					add_edge(temp, get_vertex_by_index(i    , j - 1), im_type, pixel_distance_metrics);
+					add_edge(temp, get_vertex_by_index(i    , j - 1), flag_metrics, zcoord_weight);
 				if (i)
-					add_edge(temp, get_vertex_by_index(i - 1, j    ), im_type, pixel_distance_metrics);
+					add_edge(temp, get_vertex_by_index(i - 1, j    ), flag_metrics, zcoord_weight);
 			}
 		break;
 	case 8:
 		for (int i = 0; i < im_hgt; i++)
 			for (int j = 0; j < im_wid; j++)
 			{
-#if USE_COLOR == 1
+				#if USE_COLOR == 1
                 temp = add_vertex(image.at<cv::Vec3f>(i, j), i, j);
-#else
+				#else
                 temp = add_vertex(image.at<float>(i, j), i, j);
-#endif
+				#endif
 				if (j)
-					add_edge(temp, get_vertex_by_index(i    , j - 1), im_type, pixel_distance_metrics);
+					add_edge(temp, get_vertex_by_index(i    , j - 1), flag_metrics, zcoord_weight);
 				if (i)
-					add_edge(temp, get_vertex_by_index(i - 1, j    ), im_type, pixel_distance_metrics);
+					add_edge(temp, get_vertex_by_index(i - 1, j    ), flag_metrics, zcoord_weight);
 				if (i * j)
-					add_edge(temp, get_vertex_by_index(i - 1, j - 1), im_type, pixel_distance_metrics);
+					add_edge(temp, get_vertex_by_index(i - 1, j - 1), flag_metrics, zcoord_weight);
 			}
 		break;
 	case 24:
@@ -187,56 +234,56 @@ ImageGraph::ImageGraph(cv::Mat &image, bool pixel_distance_metrics, int v)
 		{
 			for (int j = 0; j < im_wid; j++)
 			{
-#if USE_COLOR == 1
+				#if USE_COLOR == 1
                 temp = add_vertex(image.at<cv::Vec3f>(i, j), i, j);
-#else
+				#else
                 temp = add_vertex(image.at<float>(i, j), i, j);
-#endif
+				#endif
 				if (i >= 2)
 				{
-					add_edge(temp, get_vertex_by_index(i - 1, j), im_type, pixel_distance_metrics);
-					add_edge(temp, get_vertex_by_index(i - 2, j), im_type, pixel_distance_metrics);
+					add_edge(temp, get_vertex_by_index(i - 1, j), flag_metrics, zcoord_weight);
+					add_edge(temp, get_vertex_by_index(i - 2, j), flag_metrics, zcoord_weight);
 					if (j >= 2)
 					{
-						add_edge(temp, get_vertex_by_index(i	, j - 1), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i	, j - 2), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i - 1, j - 1), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i - 1, j - 2), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i - 2, j - 1), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i - 2, j - 2), im_type, pixel_distance_metrics);
+						add_edge(temp, get_vertex_by_index(i	, j - 1), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i	, j - 2), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i - 1, j - 1), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i - 1, j - 2), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i - 2, j - 1), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i - 2, j - 2), flag_metrics, zcoord_weight);
 					}
 					else if (j == 1)
 					{
-						add_edge(temp, get_vertex_by_index(i	, j - 1), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i - 1, j - 1), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i - 2, j - 1), im_type, pixel_distance_metrics);
+						add_edge(temp, get_vertex_by_index(i	, j - 1), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i - 1, j - 1), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i - 2, j - 1), flag_metrics, zcoord_weight);
 					}
 				}
 				else if (i == 1)
 				{
-					add_edge(temp, get_vertex_by_index(i - 1, j), im_type, pixel_distance_metrics);
+					add_edge(temp, get_vertex_by_index(i - 1, j), flag_metrics, zcoord_weight);
 					if (j >= 2)
 					{
-						add_edge(temp, get_vertex_by_index(i	, j - 1), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i	, j - 2), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i - 1, j - 1), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i - 1, j - 2), im_type, pixel_distance_metrics);
+						add_edge(temp, get_vertex_by_index(i	, j - 1), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i	, j - 2), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i - 1, j - 1), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i - 1, j - 2), flag_metrics, zcoord_weight);
 					}
 					else if (j == 1)
 					{
-						add_edge(temp, get_vertex_by_index(i	, j - 1), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i - 1, j - 1), im_type, pixel_distance_metrics);
+						add_edge(temp, get_vertex_by_index(i	, j - 1), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i - 1, j - 1), flag_metrics, zcoord_weight);
 					}
 				}
 				else
 				{
 					if (j >= 2)
 					{
-						add_edge(temp, get_vertex_by_index(i, j - 1), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i, j - 2), im_type, pixel_distance_metrics);
+						add_edge(temp, get_vertex_by_index(i, j - 1), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i, j - 2), flag_metrics, zcoord_weight);
 					}
 					else if (j == 1)
-						add_edge(temp, get_vertex_by_index(i, j - 1), im_type, pixel_distance_metrics);
+						add_edge(temp, get_vertex_by_index(i, j - 1), flag_metrics, zcoord_weight);
 
 				}
 			}
@@ -247,123 +294,123 @@ ImageGraph::ImageGraph(cv::Mat &image, bool pixel_distance_metrics, int v)
 		{
 			for (int j = 0; j < im_wid; j++)
 			{
-#if USE_COLOR == 1
+				#if USE_COLOR == 1
                 temp = add_vertex(image.at<cv::Vec3f>(i, j), i, j);
-#else
+				#else
                 temp = add_vertex(image.at<float>(i, j), i, j);
-#endif
+				#endif
 				if (i >= 3)
 				{
-					add_edge(temp, get_vertex_by_index(i - 1, j), im_type, pixel_distance_metrics);
-					add_edge(temp, get_vertex_by_index(i - 2, j), im_type, pixel_distance_metrics);
-					add_edge(temp, get_vertex_by_index(i - 3, j), im_type, pixel_distance_metrics);
+					add_edge(temp, get_vertex_by_index(i - 1, j), flag_metrics, zcoord_weight);
+					add_edge(temp, get_vertex_by_index(i - 2, j), flag_metrics, zcoord_weight);
+					add_edge(temp, get_vertex_by_index(i - 3, j), flag_metrics, zcoord_weight);
 					if (j >= 3)
 					{
-						add_edge(temp, get_vertex_by_index(i	, j - 1), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i	, j - 2), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i	, j - 3), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i - 1, j - 1), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i - 1, j - 2), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i - 1, j - 3), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i - 2, j - 1), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i - 2, j - 2), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i - 2, j - 3), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i - 3, j - 1), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i - 3, j - 2), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i - 3, j - 3), im_type, pixel_distance_metrics);
+						add_edge(temp, get_vertex_by_index(i	, j - 1), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i	, j - 2), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i	, j - 3), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i - 1, j - 1), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i - 1, j - 2), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i - 1, j - 3), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i - 2, j - 1), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i - 2, j - 2), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i - 2, j - 3), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i - 3, j - 1), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i - 3, j - 2), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i - 3, j - 3), flag_metrics, zcoord_weight);
 
 					}
 					else if (j == 2)
 					{
-						add_edge(temp, get_vertex_by_index(i	, j - 1), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i	, j - 2), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i - 1, j - 1), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i - 1, j - 2), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i - 2, j - 1), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i - 2, j - 2), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i - 3, j - 1), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i - 3, j - 2), im_type, pixel_distance_metrics);
+						add_edge(temp, get_vertex_by_index(i	, j - 1), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i	, j - 2), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i - 1, j - 1), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i - 1, j - 2), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i - 2, j - 1), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i - 2, j - 2), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i - 3, j - 1), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i - 3, j - 2), flag_metrics, zcoord_weight);
 					}
 					else if (j == 1)
 					{
-						add_edge(temp, get_vertex_by_index(i	, j - 1), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i - 1, j - 1), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i - 2, j - 1), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i - 3, j - 1), im_type, pixel_distance_metrics);
+						add_edge(temp, get_vertex_by_index(i	, j - 1), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i - 1, j - 1), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i - 2, j - 1), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i - 3, j - 1), flag_metrics, zcoord_weight);
 					}
 				}
 				else if (i == 2)
 				{
-					add_edge(temp, get_vertex_by_index(i - 1, j), im_type, pixel_distance_metrics);
-					add_edge(temp, get_vertex_by_index(i - 2, j), im_type, pixel_distance_metrics);
+					add_edge(temp, get_vertex_by_index(i - 1, j), flag_metrics, zcoord_weight);
+					add_edge(temp, get_vertex_by_index(i - 2, j), flag_metrics, zcoord_weight);
 					if (j >= 3)
 					{
-						add_edge(temp, get_vertex_by_index(i	, j - 1), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i	, j - 2), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i	, j - 3), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i - 1, j - 1), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i - 1, j - 2), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i - 1, j - 3), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i - 2, j - 1), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i - 2, j - 2), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i - 2, j - 3), im_type, pixel_distance_metrics);
+						add_edge(temp, get_vertex_by_index(i	, j - 1), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i	, j - 2), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i	, j - 3), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i - 1, j - 1), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i - 1, j - 2), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i - 1, j - 3), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i - 2, j - 1), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i - 2, j - 2), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i - 2, j - 3), flag_metrics, zcoord_weight);
 					}
 					else if (j == 2)
 					{
-						add_edge(temp, get_vertex_by_index(i	, j - 1), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i	, j - 2), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i - 1, j - 1), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i - 1, j - 2), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i - 2, j - 1), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i - 2, j - 2), im_type, pixel_distance_metrics);
+						add_edge(temp, get_vertex_by_index(i	, j - 1), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i	, j - 2), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i - 1, j - 1), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i - 1, j - 2), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i - 2, j - 1), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i - 2, j - 2), flag_metrics, zcoord_weight);
 					}
 					else if (j == 1)
 					{
-						add_edge(temp, get_vertex_by_index(i	, j - 1), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i - 1, j - 1), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i - 2, j - 1), im_type, pixel_distance_metrics);
+						add_edge(temp, get_vertex_by_index(i	, j - 1), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i - 1, j - 1), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i - 2, j - 1), flag_metrics, zcoord_weight);
 					}
 				}
 				else if (i == 1)
 				{
-					add_edge(temp, get_vertex_by_index(i - 1, j), im_type, pixel_distance_metrics);
+					add_edge(temp, get_vertex_by_index(i - 1, j), flag_metrics, zcoord_weight);
 					if (j >= 3)
 					{
-						add_edge(temp, get_vertex_by_index(i	, j - 1), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i	, j - 2), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i	, j - 3), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i - 1, j - 1), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i - 1, j - 2), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i - 1, j - 3), im_type, pixel_distance_metrics);
+						add_edge(temp, get_vertex_by_index(i	, j - 1), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i	, j - 2), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i	, j - 3), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i - 1, j - 1), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i - 1, j - 2), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i - 1, j - 3), flag_metrics, zcoord_weight);
 					}
 					else if (j == 2)
 					{
-						add_edge(temp, get_vertex_by_index(i	, j - 1), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i	, j - 2), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i - 1, j - 1), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i - 1, j - 2), im_type, pixel_distance_metrics);
+						add_edge(temp, get_vertex_by_index(i	, j - 1), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i	, j - 2), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i - 1, j - 1), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i - 1, j - 2), flag_metrics, zcoord_weight);
 					}
 					else if (j == 1)
 					{
-						add_edge(temp, get_vertex_by_index(i	, j - 1), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i - 1, j - 1), im_type, pixel_distance_metrics);
+						add_edge(temp, get_vertex_by_index(i	, j - 1), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i - 1, j - 1), flag_metrics, zcoord_weight);
 					}
 				}
 				else
 				{
 					if (j >= 3)
 					{
-						add_edge(temp, get_vertex_by_index(i, j - 1), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i, j - 2), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i, j - 3), im_type, pixel_distance_metrics);
+						add_edge(temp, get_vertex_by_index(i, j - 1), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i, j - 2), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i, j - 3), flag_metrics, zcoord_weight);
 					}
 					if (j == 2)
 					{
-						add_edge(temp, get_vertex_by_index(i, j - 1), im_type, pixel_distance_metrics);
-						add_edge(temp, get_vertex_by_index(i, j - 2), im_type, pixel_distance_metrics);
+						add_edge(temp, get_vertex_by_index(i, j - 1), flag_metrics, zcoord_weight);
+						add_edge(temp, get_vertex_by_index(i, j - 2), flag_metrics, zcoord_weight);
 					}
 					else if (j == 1)
-						add_edge(temp, get_vertex_by_index(i, j - 1), im_type, pixel_distance_metrics);
+						add_edge(temp, get_vertex_by_index(i, j - 1), flag_metrics, zcoord_weight);
 				}
 			}
 		}
@@ -390,7 +437,6 @@ ImageGraph::ImageGraph(cv::Mat &image, bool pixel_distance_metrics, int v)
 
 }
 
-
 ImageGraph::~ImageGraph()
 {
 	for (int i = 0; i < edges.size(); i++)
@@ -401,56 +447,19 @@ ImageGraph::~ImageGraph()
     delete partition;
 }
 
-/*template<typename T>
-int ImageGraph<T>::getNumVertex() const
+int ImageGraph::SegmentationKruskal(cv::Mat &labels, double k, int min_segment_size, int segment_size_vis, int num_segments_total)
 {
-	return vertices->vertices.size();
-}*/
-
-	
-
-int ImageGraph::SegmentationKruskal(cv::Mat &labels, int min_segment_size/*, bool join_segments*/, int k)
-{
-	Vertex *v1, *v2;
-	SegmentParams *s1, *s2;
-	//HashTable<T> *segments = vertices->getSegmentationTable();
-	int m; // dummy
+	//Pixel *p1, *p2;
+	//Segment *s1, *s2;
 
 	int t;
 	t = clock();
 	for (int i = 0; i < nedge; i++)
 	{
-		v1 = vertices->FindSet(edges[i]->x);
-		v2 = vertices->FindSet(edges[i]->y);
-		if (v1 != v2)
-		{
-			s1 = vertices->segments.Search(v1, &m);
-			s2 = vertices->segments.Search(v2, &m);
-			if (s1->numelements * s2->numelements == 1)
-				vertices->Union(v1, v2, edges[i]->weight);
-			else if (s1->numelements == 1)
-			{
-				if (edges[i]->weight <= s2->max_weight + (float)k / s2->numelements)
-					vertices->Union(v1, v2, edges[i]->weight);
-			}
-			else if (s2->numelements == 1)
-			{
-				if (edges[i]->weight <= s1->max_weight + (float)k / s1->numelements)
-					vertices->Union(v1, v2, edges[i]->weight);
-			}
-			else
-			{
-				if (
-					edges[i]->weight <=
-					std::min(s1->max_weight + (float)k / s1->numelements,
-						s2->max_weight + (float)k / s2->numelements)
-					)
-					vertices->Union(v1, v2, edges[i]->weight);
-			}
-		}
+		merge_segments(edges[i]->x, edges[i]->y, edges[i]->weight, k);
 	}
 	t = clock() - t;
-	printf("TIME (Kruskal segmentation                ) (ms): %8.2f\n", (double)t * 1000. / CLOCKS_PER_SEC);
+	printf("TIME (Kruskal segmentation. Merging       ) (ms): %8.2f\n", (double)t * 1000. / CLOCKS_PER_SEC);
 	/*if (min_segments_size * (int)join_segments > 1)
 	{
 		int h1, h2;
@@ -477,53 +486,26 @@ int ImageGraph::SegmentationKruskal(cv::Mat &labels, int min_segment_size/*, boo
             j++;
         }
 	}*/
-	t = clock();
-	int sz = vertices->getNumVertices();
-	int c = 0;
-	// -- segment statistics
-	std::vector<int> segment_labels;
-	std::vector<int> segment_sizes;
-	int pos;
-	//
-	for (int t = 0; t < sz; t++)
-	{
-		v1 = vertices->vertices[t];
-		s1 = vertices->segments.Search(vertices->FindSet(v1), &m);
-		cv::Vec2i coords = v1->getPixelCoords();
-		if (s1->numelements >= min_segment_size)
-			labels.at<int>(coords) = s1->label;
-		else
-			c++;
-		
-		pos = -1;
-		for (int w = 0; w < segment_labels.size(); w++)
-		{
-			if (labels.at<int>(coords) == segment_labels[w])
-			{
-				pos = w;
-				break;
-			}
-		}
-		if (pos == -1)
-		{
-			segment_labels.push_back(labels.at<int>(coords));
-			segment_sizes.push_back(1);
-		}
-		else
-		{
-			segment_sizes[pos]++;
-		}
-	}
-	t = clock() - t;
-	printf("TIME (Labeling segments                   ) (ms): %8.2f\n", (double)t * 1000. / CLOCKS_PER_SEC);
+
 	
-	printf("Image size (px): %7i\n#px unsegmented: %7i\n#segments total: %7i\n", this->nvertex, c, segment_labels.size() - 1);
+	int num_segments_under_threshold, num_mergers, num_pixels_under_threshold,
+		num_segments_initial = segmentation_data->getNumKeys();
+	
+	t = clock();
+	make_labels(labels, k, min_segment_size, num_segments_total,
+		&num_segments_under_threshold,
+		&num_mergers,
+		&num_pixels_under_threshold);
+	t = clock() - t;
+	printf("TIME (Kruskal segmentation. Labeling      ) (ms): %8.2f\n", (double)t * 1000. / CLOCKS_PER_SEC);
+	
+	/*printf("Image size (px): %7i\n#px unsegmented: %7i\n#segments total: %7i\n", this->nvertex, c, segment_labels.size() - 1);
 	
 	FILE *f;
 	f = fopen("F:\\opticalflow\\log.txt", "w");
 	for (int q = 0; q < segment_labels.size(); q++)
 		fprintf(f, "segment: %7i, size: %7i\n", segment_labels[q], segment_sizes[q]);
-	fclose(f);
+	fclose(f);*/
 
-	return vertices->segments.getNumKeys();
+	return 1;
 }
