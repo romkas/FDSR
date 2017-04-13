@@ -7,40 +7,52 @@
 #include <ctime>
 
 
+struct Pixel
+{
+#if USE_COLOR == 1
+    cv::Vec3f pixvalue; // rgb
+#else
+    float pixvalue; // intensity
+#endif
+    cv::Vec3f coords;
+    Node *pnode;
+};
+
+struct Edge
+{
+    Pixel *x, *y;
+    double weight;
+};
+
 class ImageGraph
 {
-	struct PixelGray
-	{
-		float pixvalue; // intensity
-		cv::Vec3i coords; // 3D vector with x, y, z coords
-	};
-
-	struct PixelColor
-	{
-		cv::Vec3f pixvalue; // rgb
-		cv::Vec3i coords;
-	};
-
-	struct Edge
-	{
-		Node *x, *y;
-		double weight;
-	};
-	
-	std::vector<Edge> edges;
-	std::vector<PixelColor*> pixelcolor;
-	std::vector<PixelGray*> pixelgray;
+	std::vector<Edge*> edges;
+    std::vector<Pixel*> pixels;
 	DisjointSet *partition;
 	HashTable *segmentation_data;
 
 	size_t nvertex, nedge, im_wid, im_hgt;
+    int type;
+    
+#if USE_COLOR == 1
+    Pixel* add_vertex(cv::Vec3f &pixelvalue, float x, float y, float z = 0.f);
+#else
+	Pixel* add_vertex(float pixelvalue, float x, float y, float z = 0);
+#endif
 
-	void add_vertex();
+    void merge_segments(Pixel *, Pixel *, double, double);
 
-	double calc_weigth(Vertex *n1, Vertex *n2, int im_type, bool use_distance);
-	void add_edge(Vertex*, Vertex*, int im_type, bool use_distance);
+    double calc_weight(Pixel *n1, Pixel *n2);
+    double calc_weight_dist(Pixel *n1, Pixel *n2, double z_weight);
+    //double calc_weight_color(Pixel *n1, Pixel *n2, int im_type);
+    //double calc_weight_
+    // other weight functions
+
+	void add_edge(Pixel *, Pixel *, int flag, double z_weight);
 	//datastruct::Node<T>* set_vertex(T& val, int x, int y);
-	inline Vertex* get_vertex_by_index(int i, int j);
+	
+    inline Pixel* get_vertex_by_index(int i, int j);
+
 public:
 	ImageGraph();
 	// constructs a graph with pixels as vertices and edge weights as the color difference

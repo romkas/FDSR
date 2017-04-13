@@ -186,18 +186,22 @@ std::vector<Vertex<T>*>& DisjointSet<T>::getVertexList() const
 	return vertices;
 }*/
 
-void DisjointSet::Union(Node *pa, Node *pb, double edge_weight)
+Node* DisjointSet::Union(Node *pa, Node *pb)
 {
 	Node *repr1, *repr2;
 	repr1 = FindSet(pa);
 	repr2 = FindSet(pb);		
-	if (repr1->rank > repr2->rank)
-		repr2->pparent = repr1;
+    if (repr1->rank > repr2->rank)
+    {
+        repr2->pparent = repr1;
+        return repr1;
+    }
 	else
 	{
 		repr1->pparent = repr2;
 		if (repr1->rank == repr2->rank)
 			repr2->rank++;
+        return repr2;
 	} 
 }
 

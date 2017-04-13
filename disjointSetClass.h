@@ -1,6 +1,6 @@
 #pragma once
 #include <vector>
-//#include <list>
+#include <list>
 #include <opencv2\core.hpp>
 //#include <cstdint>
 
@@ -9,7 +9,7 @@ struct Node
 {
 	Node *pparent;
 	int rank;
-	void *pixel;
+	//Pixel *pixel;
 	//int segment_label;
 };
 
@@ -20,6 +20,7 @@ struct Segment
 	int numelements;
 	int label;
 	double max_weight;
+    std::list<Node*> nodes;
 };
 
 class HashTable
@@ -41,8 +42,8 @@ public:
 	HashTable();
 	HashTable(size_t size);
 	~HashTable();
-	Segment* Search(Node*, int*) const;
-	unsigned int Insert(Segment*);
+	Segment* Search(Node *, int *) const;
+	unsigned int Insert(Segment *);
 	bool Delete(unsigned int);
 	size_t getNumKeys() const;
 	Segment* getSegment(unsigned int) const;
@@ -68,7 +69,7 @@ public:
 	//DisjointSet(size_t hashtable_size);
 	~DisjointSet();
 	Node* MakeSet();
-	void Union(Node *, Node *, double);
+	Node* Union(Node *, Node *);
 	Node* FindSet(const Node *) const;
     //void DeleteSet(int s);
 	//HashTable<T>* getSegmentationTable() const;

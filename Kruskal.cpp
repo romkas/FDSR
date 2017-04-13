@@ -7,65 +7,128 @@ ImageGraph::ImageGraph()
 
 }
 
-void ImageGraph::add_vertex(float val, int xcoord, int ycoord)
+#if USE_COLOR == 1
+Pixel* ImageGraph::add_vertex(cv::Vec3f &val, float x, float y, float z)
+#else
+Pixel* ImageGraph::add_vertex(float val, float xcoord, float ycoord, float zcoord)
+#endif
 {
-	Node* v = partition->MakeSet();
+	Node *v = partition->MakeSet();
 
+    Pixel *p = new Pixel;
+    p->coords = cv::Vec3f(x, y, z);
+    p->pixvalue = val;
+    p->pnode = v;
+    pixels.push_back(p);
 
-	SegmentParams *segment = new SegmentParams;
+    Segment *segment = new Segment;
 	segment->root = v;
 	segment->numelements = 1;
 	//segment->vertexlist.push_back(v);
-	segment->label = this->vertices.size();
+	segment->label = pixels.size();
+    
+    segment->nodes.push_back(v);
 
 	//segments_list.push_back(segments.Insert(segment));
-	segments.Insert(segment);
+	segmentation_data->Insert(segment);
 
-	SegmentParams *segment1, *segment2;
-	int z1, z2;
-	segment1 = segments.Search(repr1, &z1);
-	segment2 = segments.Search(repr2, &z2);
+	//SegmentParams *segment1, *segment2;
+	//int z1, z2;
+	//segment1 = segments.Search(repr1, &z1);
+	//segment2 = segments.Search(repr2, &z2);
 
-	segment1->max_weight = edge_weight;
-	segment1->numelements = segment1->numelements + segment2->numelements;
-	//segment2->label = segment1->label;
-	segments.Delete(z2);
-	//segments_list.erase(segments_list.begin() + find_hash_in_list(z2));
+	//segment1->max_weight = edge_weight;
+	//segment1->numelements = segment1->numelements + segment2->numelements;
+	////segment2->label = segment1->label;
+	//segments.Delete(z2);
+	////segments_list.erase(segments_list.begin() + find_hash_in_list(z2));
 
-	segment2->max_weight = edge_weight;
-	segment2->numelements = segment2->numelements + segment1->numelements;
-	//segment1->label = segment2->label;
-	segments.Delete(z1);
-	//segments_list.erase(segments_list.begin() + find_hash_in_list(z1));
+	//segment2->max_weight = edge_weight;
+	//segment2->numelements = segment2->numelements + segment1->numelements;
+	////segment1->label = segment2->label;
+	//segments.Delete(z1);
+	////segments_list.erase(segments_list.begin() + find_hash_in_list(z1));
 }
 
-double ImageGraph::calc_weigth(Vertex *n1, Vertex *n2, int im_type, bool use_distance)
+void ImageGraph::merge_segments(Pixel *p1, Pixel *p2, double w, double k)
 {
-    double v = n1->getPixelValue() - n2->getPixelValue();
-	cv::Vec2i c1, c2;
-		
-	if (use_distance)
-	{
-		c1 = n1->getPixelCoords();
-		c2 = n2->getPixelCoords();
-		return cv::sqrt(v*v + (double)(c1[0] - c2[0])*(c1[0]- c2[0]) + (double)(c1[1] - c2[1])*(c1[1] - c2[1]));
-	}
-	else
-		return cv::abs(v);
+    Segment *seg1, *seg2;
+    int z1, z2;
+    Node *repr1 = partition->FindSet(p1->pnode),
+        *repr2 = partition->FindSet(p2->pnode);
+    Node *temp;
+    if (repr1 == repr2)
+        return;
+
+    seg1 = segmentation_data->Search(repr1, &z1);
+    seg2 = segmentation_data->Search(repr2, &z2);
+
+    if (seg1->numelements * seg2->numelements == 1)
+        temp = partition->Union(repr1, repr2);
+    else if (seg1->numelements == 1)
+    {
+        if (w <= seg2->max_weight + k / seg2->numelements)
+            temp = partition->Union(repr1, repr2);
+    }
+    else if (seg2->numelements == 1)
+    {
+        if (w <= seg1->max_weight + k / seg1->numelements)
+            temp = partition->Union(repr1, repr2);
+    }
+    else
+    {
+        if (
+            w <=
+            std::min(seg1->max_weight + k / seg1->numelements,
+                seg2->max_weight + k / seg2->numelements)
+            )
+            temp = partition->Union(repr1, repr2);
+    }
+
 }
 
-void ImageGraph::add_edge(Vertex* pa, Vertex* pb, int im_type, bool use_distance)
+double ImageGraph::calc_weight(Pixel *n1, Pixel *n2)
+{
+#if USE_COLOR == 1
+    cv::Vec3f v = n1->pixvalue - n2->pixvalue;
+    return cv::sqrt((double)v.dot(v));
+#else
+    float v = n1->pixvalue - n2->pixvalue;
+    return cv::abs((double)v);
+#endif
+}
+
+double ImageGraph::calc_weight_dist(Pixel *n1, Pixel *n2, double z_w)
+{
+    double r;
+#if USE_COLOR == 1
+    cv::Vec3f v = n1->pixvalue - n2->pixvalue;
+    r = v.dot(v);
+#else
+    float v = n1->pixvalue - n2->pixvalue;
+    r = v * v;
+#endif
+    cv::Vec3f coords = n1->coords - n2->coords;
+    coords[2] *= z_w;
+    return cv::sqrt(r + coords.dot(coords));
+}
+
+
+void ImageGraph::add_edge(Pixel *pa, Pixel *pb, int flag, double z_weight)
 {
 	Edge *pe = new Edge;
 	pe->x = pa;
 	pe->y = pb;
-	pe->weight = calc_weigth(pa, pb, im_type, use_distance);
+    if (flag == 0)
+        pe->weight = calc_weight(pa, pb);
+    else if (flag == 1)
+        pe->weight = calc_weight_dist(pa, pb, z_weight);
     edges.push_back(pe);
 }
 
-inline Vertex* ImageGraph::get_vertex_by_index(int i, int j)
+inline Pixel* ImageGraph::get_vertex_by_index(int i, int j)
 {
-	return vertices->vertices[i * this->im_wid + j];
+	return pixels[i * this->im_wid + j];
 }
 
 
@@ -75,9 +138,11 @@ ImageGraph::ImageGraph(cv::Mat &image, bool pixel_distance_metrics, int v)
 	this->im_hgt = image.rows;
 	this->nvertex = im_wid * im_hgt;
 	int im_type = image.type();
-	this->vertices = new DisjointSet(nvertex);
-	
-	Vertex *temp;
+	//this->vertices = new DisjointSet(nvertex);
+    this->partition = new DisjointSet();
+    this->segmentation_data = new HashTable(nvertex);
+
+	Pixel *temp;
 
 	clock_t t;
 	
@@ -89,7 +154,11 @@ ImageGraph::ImageGraph(cv::Mat &image, bool pixel_distance_metrics, int v)
 		for (int i = 0; i < im_hgt; i++)
 			for (int j = 0; j < im_wid; j++)
 			{
-				temp = vertices->MakeSet(image.at<float>(i, j), i, j);
+#if USE_COLOR == 1
+                temp = add_vertex(image.at<cv::Vec3f>(i, j), i, j);
+#else
+                temp = add_vertex(image.at<float>(i, j), i, j);
+#endif
 				if (j)
 					add_edge(temp, get_vertex_by_index(i    , j - 1), im_type, pixel_distance_metrics);
 				if (i)
@@ -100,7 +169,11 @@ ImageGraph::ImageGraph(cv::Mat &image, bool pixel_distance_metrics, int v)
 		for (int i = 0; i < im_hgt; i++)
 			for (int j = 0; j < im_wid; j++)
 			{
-				temp = vertices->MakeSet(image.at<float>(i, j), i, j);
+#if USE_COLOR == 1
+                temp = add_vertex(image.at<cv::Vec3f>(i, j), i, j);
+#else
+                temp = add_vertex(image.at<float>(i, j), i, j);
+#endif
 				if (j)
 					add_edge(temp, get_vertex_by_index(i    , j - 1), im_type, pixel_distance_metrics);
 				if (i)
@@ -114,7 +187,11 @@ ImageGraph::ImageGraph(cv::Mat &image, bool pixel_distance_metrics, int v)
 		{
 			for (int j = 0; j < im_wid; j++)
 			{
-				temp = vertices->MakeSet(image.at<float>(i, j), i, j);
+#if USE_COLOR == 1
+                temp = add_vertex(image.at<cv::Vec3f>(i, j), i, j);
+#else
+                temp = add_vertex(image.at<float>(i, j), i, j);
+#endif
 				if (i >= 2)
 				{
 					add_edge(temp, get_vertex_by_index(i - 1, j), im_type, pixel_distance_metrics);
@@ -170,7 +247,11 @@ ImageGraph::ImageGraph(cv::Mat &image, bool pixel_distance_metrics, int v)
 		{
 			for (int j = 0; j < im_wid; j++)
 			{
-				temp = vertices->MakeSet(image.at<float>(i, j), i, j);
+#if USE_COLOR == 1
+                temp = add_vertex(image.at<cv::Vec3f>(i, j), i, j);
+#else
+                temp = add_vertex(image.at<float>(i, j), i, j);
+#endif
 				if (i >= 3)
 				{
 					add_edge(temp, get_vertex_by_index(i - 1, j), im_type, pixel_distance_metrics);
@@ -314,7 +395,10 @@ ImageGraph::~ImageGraph()
 {
 	for (int i = 0; i < edges.size(); i++)
 		delete edges[i];
-	delete vertices;
+    for (int i = 0; i < pixels.size(); i++)
+        delete pixels[i];
+    delete segmentation_data;
+    delete partition;
 }
 
 /*template<typename T>
