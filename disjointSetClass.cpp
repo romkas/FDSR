@@ -23,12 +23,9 @@ HashTable::HashTable(size_t size)
 }
 
 
-HashTable::~HashTable()
-{
-	delete[] table;
-}
+HashTable::~HashTable() { delete[] table; }
 
-unsigned int HashTable::hash(Vertex* pver, int n_probe) const
+unsigned int HashTable::hash(Node* pver, int n_probe) const
 {
     unsigned int h1, h2, pval;
     pval = reinterpret_cast<int>(pver);
@@ -37,7 +34,7 @@ unsigned int HashTable::hash(Vertex* pver, int n_probe) const
 	return (h1 + n_probe * h2) % this->size;
 }
 	
-SegmentParams* HashTable::Search(Vertex* pver, int *index) const
+Segment* HashTable::Search(Node* pver, int *index) const
 {
 	int i = 0, h;
 	do {
@@ -49,7 +46,7 @@ SegmentParams* HashTable::Search(Vertex* pver, int *index) const
 	return nullptr;
 }
 
-unsigned int HashTable::Insert(SegmentParams *param)
+unsigned int HashTable::Insert(Segment *param)
 {
 	int i = 0, h = -1;
 	do {
@@ -75,31 +72,12 @@ bool HashTable::Delete(unsigned int hashvalue)
 	return true;
 }
 
-size_t HashTable::getNumKeys() const
-{
-	return this->num_keys;
-}
+size_t HashTable::getNumKeys() const { return this->num_keys; }
 
-SegmentParams* HashTable::getSegment(unsigned int k) const
-{
-	return table[k].p;
-}
+Segment* HashTable::getSegment(unsigned int k) const { return table[k].p; }
 
 
 
-Vertex::Vertex() { }
-
-Vertex::~Vertex() { }
-
-void Vertex::setParent(Vertex *p) { this->pparent = p; }
-
-void Vertex::setRank(int r) { this->rank = r; }
-
-void Vertex::setPixel(float pixval, float x, float y)
-{
-	this->pixel.pixvalue = pixval;
-	this->pixel.coords = cv::Vec2i((int)x, (int)y);
-}
 
 /*template<typename T>
 void Vertex<T>::setLabel(int lab) { this->segment_label = lab; }*/
@@ -113,13 +91,6 @@ void Vertex<T>::addAdjacent(Vertex<T> *p)
 	adjacent.push_back(p);
 }*/
 
-Vertex* Vertex::getParent() const { return pparent; }
-
-int Vertex::getRank() const { return rank; }
-
-float Vertex::getPixelValue() const { return pixel.pixvalue; }
-
-const cv::Vec2i& Vertex::getPixelCoords() const { return pixel.coords; }
 
 /*template<typename T>
 int Vertex<T>::getLabel() const { return segment_label; }*/
@@ -153,41 +124,31 @@ std::vector<Vertex<T>*>& Vertex<T>::getAdjacent() const { return adjacent; }*/
 
 DisjointSet::DisjointSet() {	}
 
-DisjointSet::DisjointSet(size_t hashtable_size) : segments(hashtable_size) { }
+//DisjointSet::DisjointSet(size_t hashtable_size)/* : segments(hashtable_size) */{ }
 
 DisjointSet::~DisjointSet()
 {
-	for (int i = 0; i < vertices.size(); i++)
-		delete vertices[i];
+	for (int i = 0; i < set.size(); i++)
+		delete set[i];
     //for (int i = 0; i < segments_list.size(); i++)
     //    delete segments.getSegment(segments_list[i]);
 	//delete segments;
 }
 
-Vertex* DisjointSet::MakeSet(float x, float xcoord, float ycoord)
+Node* DisjointSet::MakeSet()
 {
-	Vertex *v = new Vertex;
-	v->setParent(v);
-	v->setRank(0);
-	v->setPixel(x, xcoord, ycoord);
+	Node *v = new Node;
+	v->pparent = v;
+	v->rank = 0;
+	//v->setPixel(x, xcoord, ycoord);
 	//v->setLabel(-1);
-	vertices.push_back(v);
-
-	SegmentParams *segment = new SegmentParams;
-	segment->root = v;
-	segment->numelements = 1;
-    //segment->vertexlist.push_back(v);
-	segment->label = this->vertices.size();
-	
-	//segments_list.push_back(segments.Insert(segment));
-	segments.Insert(segment);
-
+	set.push_back(v);
 	return v;
 }
 
-Vertex* DisjointSet::FindSet(const Vertex *pver) const
+Node* DisjointSet::FindSet(const Node *pver) const
 {
-	Vertex *par = pver->getParent();
+	Node *par = pver->pparent;
 	if (pver != par)
 	{
 		par = FindSet(par);
@@ -225,39 +186,21 @@ std::vector<Vertex<T>*>& DisjointSet<T>::getVertexList() const
 	return vertices;
 }*/
 
-void DisjointSet::Union(Vertex *pa, Vertex *pb, double edge_weight)
+void DisjointSet::Union(Node *pa, Node *pb, double edge_weight)
 {
-	Vertex *repr1, *repr2;
+	Node *repr1, *repr2;
 	repr1 = FindSet(pa);
-	repr2 = FindSet(pb);
-
-	SegmentParams *segment1, *segment2;
-	int z1, z2;
-	segment1 = segments.Search(repr1, &z1);
-	segment2 = segments.Search(repr2, &z2);
-		
-	if (repr1->getRank() > repr2->getRank())
-	{
-		repr2->setParent(repr1);
-		segment1->max_weight = edge_weight;
-		segment1->numelements = segment1->numelements + segment2->numelements;
-		//segment2->label = segment1->label;
-		segments.Delete(z2);
-		//segments_list.erase(segments_list.begin() + find_hash_in_list(z2));
-	}
+	repr2 = FindSet(pb);		
+	if (repr1->rank > repr2->rank)
+		repr2->pparent = repr1;
 	else
 	{
-		repr1->setParent(repr2);
-		if (repr1->getRank() == repr2->getRank())
-			repr2->setRank(repr2->getRank() + 1);
-		segment2->max_weight = edge_weight;
-		segment2->numelements = segment2->numelements + segment1->numelements;
-		//segment1->label = segment2->label;
-		segments.Delete(z1);
-		//segments_list.erase(segments_list.begin() + find_hash_in_list(z1));
+		repr1->pparent = repr2;
+		if (repr1->rank == repr2->rank)
+			repr2->rank++;
 	} 
 }
 
-int DisjointSet::getNumVertices() const { return vertices.size(); }
+int DisjointSet::getNumElements() const { return set.size(); }
 
-int DisjointSet::getNumSegments() const { return segments.getNumKeys(); }
+//int DisjointSet::getNumSegments() const { return segments.getNumKeys(); }

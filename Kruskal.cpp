@@ -7,6 +7,38 @@ ImageGraph::ImageGraph()
 
 }
 
+void ImageGraph::add_vertex(float val, int xcoord, int ycoord)
+{
+	Node* v = partition->MakeSet();
+
+
+	SegmentParams *segment = new SegmentParams;
+	segment->root = v;
+	segment->numelements = 1;
+	//segment->vertexlist.push_back(v);
+	segment->label = this->vertices.size();
+
+	//segments_list.push_back(segments.Insert(segment));
+	segments.Insert(segment);
+
+	SegmentParams *segment1, *segment2;
+	int z1, z2;
+	segment1 = segments.Search(repr1, &z1);
+	segment2 = segments.Search(repr2, &z2);
+
+	segment1->max_weight = edge_weight;
+	segment1->numelements = segment1->numelements + segment2->numelements;
+	//segment2->label = segment1->label;
+	segments.Delete(z2);
+	//segments_list.erase(segments_list.begin() + find_hash_in_list(z2));
+
+	segment2->max_weight = edge_weight;
+	segment2->numelements = segment2->numelements + segment1->numelements;
+	//segment1->label = segment2->label;
+	segments.Delete(z1);
+	//segments_list.erase(segments_list.begin() + find_hash_in_list(z1));
+}
+
 double ImageGraph::calc_weigth(Vertex *n1, Vertex *n2, int im_type, bool use_distance)
 {
     double v = n1->getPixelValue() - n2->getPixelValue();
