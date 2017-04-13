@@ -18,9 +18,9 @@ class ImageGraph
     int type;
     
 #if USE_COLOR == 1
-    Pixel* add_vertex(cv::Vec3f &pixelvalue, float x, float y, float z = 0.f);
+    Pixel* add_vertex(cv::Vec3f &pixelvalue, float x, float y, float z);
 #else
-	Pixel* add_vertex(float pixelvalue, float x, float y, float z = 0);
+	Pixel* add_vertex(float pixelvalue, float x, float y, float z);
 #endif
 
     void merge_segments(Pixel *, Pixel *, double, double);

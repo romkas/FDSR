@@ -15,8 +15,13 @@ void print_help()
 {
 	printf("Program usage:\narg1 - size of pixel vicinity (4, 8, 24, 48)\narg2 - metric function for edge weight calculation\n"
 		"arg3 - Kruskal k parameter\narg4 - segment size threshold\narg5 - target number of segments\n"
-		"arg6 - segment size threshold (for visualization)\narg7 - is input image either color or grayscale\n"
-		"arg8 - input image file path\narg9 - is depth map data given\narg10 - depth data file path");
+		"arg6 - segment size threshold (for visualization)\narg7 - ");
+#if USE_COLOR == 1
+	printf("color image file path");
+#else
+	printf("grayscale image file path");
+#endif
+	printf("\narg8 - is depth map data given\narg9- depth data file path");
 }
 
 void ReadPFMFile(cv::Mat& img, const char* filename)
@@ -108,18 +113,20 @@ int main(int argc, char **argv)
 		img = cv::imread(argv[c++], cv::IMREAD_GRAYSCALE);
 #endif
 
-		bool param_depthdata = (bool)std::atoi(argv[c++]);
-		if (param_depthdata)
-			ReadPFMFile(depth, argv[c++]);
-		
 		int target_w = 320, target_h = 240;
 		cv::resize(img, img, cv::Size(target_w, target_h), 0, 0, cv::INTER_LINEAR);
-		if (param_depthdata)
-			cv::resize(depth, depth, cv::Size(target_w, target_h), 0, 0, cv::INTER_LINEAR);
-
 		cv::Size img_size = img.size();
 		int width = img_size.width, height = img_size.height;
 		int img_type = img.type();
+
+		bool param_depthdata = (bool)std::atoi(argv[c++]);
+		if (param_depthdata)
+			ReadPFMFile(depth, argv[c++]);
+		else
+			depth = cv::Mat::zeros(img_size, img_type);
+
+		if (param_depthdata)
+			cv::resize(depth, depth, cv::Size(target_w, target_h), 0, 0, cv::INTER_LINEAR);
 
 		{
 			img.convertTo(img_to_plot, CV_8UC3, 255.);

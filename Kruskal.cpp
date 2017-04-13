@@ -202,9 +202,9 @@ ImageGraph::ImageGraph(cv::Mat &image, cv::Mat &depth, int v, int flag_metrics, 
 			for (int j = 0; j < im_wid; j++)
 			{
 				#if USE_COLOR == 1
-                temp = add_vertex(image.at<cv::Vec3f>(i, j), i, j);
+                temp = add_vertex(image.at<cv::Vec3f>(i, j), i, j, depth.at<float>(i, j));
 				#else
-                temp = add_vertex(image.at<float>(i, j), i, j);
+                temp = add_vertex(image.at<float>(i, j), i, j, depth.at<float>(i, j));
 				#endif
 				if (j)
 					add_edge(temp, get_vertex_by_index(i    , j - 1), flag_metrics, zcoord_weight);
@@ -217,9 +217,9 @@ ImageGraph::ImageGraph(cv::Mat &image, cv::Mat &depth, int v, int flag_metrics, 
 			for (int j = 0; j < im_wid; j++)
 			{
 				#if USE_COLOR == 1
-                temp = add_vertex(image.at<cv::Vec3f>(i, j), i, j);
+                temp = add_vertex(image.at<cv::Vec3f>(i, j), i, j, depth.at<float>(i, j));
 				#else
-                temp = add_vertex(image.at<float>(i, j), i, j);
+                temp = add_vertex(image.at<float>(i, j), i, j, depth.at<float>(i, j));
 				#endif
 				if (j)
 					add_edge(temp, get_vertex_by_index(i    , j - 1), flag_metrics, zcoord_weight);
@@ -235,9 +235,9 @@ ImageGraph::ImageGraph(cv::Mat &image, cv::Mat &depth, int v, int flag_metrics, 
 			for (int j = 0; j < im_wid; j++)
 			{
 				#if USE_COLOR == 1
-                temp = add_vertex(image.at<cv::Vec3f>(i, j), i, j);
+                temp = add_vertex(image.at<cv::Vec3f>(i, j), i, j, depth.at<float>(i, j));
 				#else
-                temp = add_vertex(image.at<float>(i, j), i, j);
+                temp = add_vertex(image.at<float>(i, j), i, j, depth.at<float>(i, j));
 				#endif
 				if (i >= 2)
 				{
@@ -295,9 +295,9 @@ ImageGraph::ImageGraph(cv::Mat &image, cv::Mat &depth, int v, int flag_metrics, 
 			for (int j = 0; j < im_wid; j++)
 			{
 				#if USE_COLOR == 1
-                temp = add_vertex(image.at<cv::Vec3f>(i, j), i, j);
+                temp = add_vertex(image.at<cv::Vec3f>(i, j), i, j, depth.at<float>(i, j));
 				#else
-                temp = add_vertex(image.at<float>(i, j), i, j);
+                temp = add_vertex(image.at<float>(i, j), i, j, depth.at<float>(i, j));
 				#endif
 				if (i >= 3)
 				{
