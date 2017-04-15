@@ -100,18 +100,23 @@ int main(int argc, char **argv)
 		int c = 1;
 		int param_pixel_vicinity = std::atoi(argv[c++]);
 		int param_metrics_flag = std::atoi(argv[c++]);
-		double param_k = std::atoi(argv[c++]);
+		double param_k = std::atof(argv[c++]);
 		int param_min_segment_size = std::atoi(argv[c++]);
 		int param_target_num_segments = std::atoi(argv[c++]);
 		int param_segment_size_vis = std::atoi(argv[c++]);
 		//bool param_color = (bool)std::atoi(argv[c++]);
-		
-		cv::Mat img, img_to_plot, depth;
+		double param_z_coord_weight = std::atof(argv[c++]);
+
+		cv::Mat img, img_float, img_to_plot, depth;
 #if USE_COLOR == 1
 		img = cv::imread(argv[c++], cv::IMREAD_COLOR);
 #else
 		img = cv::imread(argv[c++], cv::IMREAD_GRAYSCALE);
 #endif
+
+		/*cv::namedWindow("source image-1", cv::WINDOW_AUTOSIZE);
+		cv::imshow("source image-1", img);
+		cv::waitKey();*/
 
 		int target_w = 320, target_h = 240;
 		cv::resize(img, img, cv::Size(target_w, target_h), 0, 0, cv::INTER_LINEAR);
@@ -128,9 +133,18 @@ int main(int argc, char **argv)
 		if (param_depthdata)
 			cv::resize(depth, depth, cv::Size(target_w, target_h), 0, 0, cv::INTER_LINEAR);
 
+		if (img.depth() != CV_32F)
+#if USE_COLOR == 1
+			img.convertTo(img_float, CV_32FC3);
+#else
+			img.convertTo(img_float, CV_32FC1);
+#endif
+		else
+			img_float = img;
+
 		{
-			img.convertTo(img_to_plot, CV_8UC3, 255.);
 			double min, max;
+			/*img.convertTo(img_to_plot, CV_8UC3, 255.);
 			cv::Mat p[3];
 			cv::split(img_to_plot, p);
 			cv::minMaxIdx(p[0], &min, &max);
@@ -139,20 +153,22 @@ int main(int argc, char **argv)
 			p[1] = (p[1] - (float)min) / ((float)max - (float)min);
 			cv::minMaxIdx(p[2], &min, &max);
 			p[2] = (p[2] - (float)min) / ((float)max - (float)min);
-			cv::merge(p, 3, img_to_plot);
+			cv::merge(p, 3, img_to_plot);*/
+			img_to_plot = cv::Mat(img);
 			cv::namedWindow("source image", cv::WINDOW_AUTOSIZE);
 			cv::imshow("source image", img_to_plot);
-			cv::waitKey(1000);
+			cv::waitKey(100);
 			if (param_depthdata)
 			{
 				cv::minMaxIdx(depth, &min, &max);
 				img_to_plot = (depth - (float)min) / ((float)max - (float)min);
 				cv::namedWindow("source depth", cv::WINDOW_AUTOSIZE);
 				cv::imshow("source depth", img_to_plot);
-				cv::waitKey(1000);
+				cv::waitKey(100);
 			}
 		}
-        ImageGraph G = ImageGraph(img, depth, param_pixel_vicinity, param_metrics_flag, 1.7);
+
+        ImageGraph G = ImageGraph(img_float, depth, param_pixel_vicinity, param_metrics_flag, param_z_coord_weight);
 		cv::Mat labels = -cv::Mat::ones(img_size, CV_32SC1);
 		//int n_segments;
 		G.SegmentationKruskal(labels, param_k, param_min_segment_size, param_segment_size_vis, param_target_num_segments);
@@ -160,22 +176,24 @@ int main(int argc, char **argv)
 		//printf("Found segments: %4i\n", n_segments);
 
         {
-            cv::Mat p[3];
+			cv::Mat segmentation = cv::Mat::zeros(img_size, CV_8UC3);
+
+			/*cv::Mat p[3];
 			cv::Mat img_3channel(img_size, CV_32FC3);
             img_to_plot.copyTo(p[0]);
 			img_to_plot.copyTo(p[1]);
 			img_to_plot.copyTo(p[2]);
 			p[0].convertTo(p[0], CV_8UC1, 255.);
 			p[1].convertTo(p[1], CV_8UC1, 255.);
-			p[2].convertTo(p[2], CV_8UC1, 255.);
+			p[2].convertTo(p[2], CV_8UC1, 255.);*/
 
 			// paint pixels according to segment labels
 			std::vector<int> segment_labels;
 			std::vector<unsigned char> red, green, blue;
 			int pos_in_color_vector;
 			cv::RNG rng;
-			for (int i = 0; i < img_3channel.rows; i++)
-				for (int j = 0; j < img_3channel.cols; j++)
+			for (int i = 0; i < img.rows; i++)
+				for (int j = 0; j < img.cols; j++)
 				{
 					pos_in_color_vector = -1;
 					for (int t = 0; t < segment_labels.size(); t++)
@@ -202,15 +220,18 @@ int main(int argc, char **argv)
 					}
 					if (pos_in_color_vector != -1)
 					{
-						p[0].at<unsigned char>(i, j) = red[pos_in_color_vector];
+						/*p[0].at<unsigned char>(i, j) = red[pos_in_color_vector];
 						p[1].at<unsigned char>(i, j) = green[pos_in_color_vector];
-						p[2].at<unsigned char>(i, j) = blue[pos_in_color_vector];
+						p[2].at<unsigned char>(i, j) = blue[pos_in_color_vector];*/
+						segmentation.at<cv::Vec3b>(i, j) = cv::Vec3b(red[pos_in_color_vector],
+							green[pos_in_color_vector], blue[pos_in_color_vector]);
 					}
 				}
 
-			cv::merge(p, 3, img_3channel);
+			//cv::merge(p, 3, img_3channel);
 			cv::namedWindow("segmented image", cv::WINDOW_AUTOSIZE);
-			cv::imshow("segmented image", img_3channel);
+			//cv::imshow("segmented image", img_3channel);
+			cv::imshow("segmented image", segmentation);
 			cv::waitKey();
 
             /*cv::Mat r(img_size, CV_32FC1), g(img_size, CV_32FC1), b(img_size, CV_32FC1);

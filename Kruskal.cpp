@@ -177,6 +177,12 @@ void ImageGraph::make_labels(cv::Mat &labels, double k, int min_segment_size, in
 			segment_sizes[pos]++;
 		}
 	}
+
+	FILE *f;
+	f = fopen("F:\\opticalflow\\log.txt", "w");
+	for (int q = 0; q < segment_labels.size(); q++)
+		fprintf(f, "segment: %7i, size: %7i\n", segment_labels[q], segment_sizes[q]);
+	fclose(f);
 }
 
 
@@ -423,6 +429,9 @@ ImageGraph::ImageGraph(cv::Mat &image, cv::Mat &depth, int v, int flag_metrics, 
 	this->nedge = edges.size();
 
 	t = clock() - t;
+
+	printf("#vertices = %7i, #edges = %7i\n", this->nvertex, this->nedge);
+
 	printf("TIME (Graph construction                  ) (ms): %8.2f\n", (double)t * 1000. / CLOCKS_PER_SEC);
 
 	t = clock();
@@ -499,13 +508,9 @@ int ImageGraph::SegmentationKruskal(cv::Mat &labels, double k, int min_segment_s
 	t = clock() - t;
 	printf("TIME (Kruskal segmentation. Labeling      ) (ms): %8.2f\n", (double)t * 1000. / CLOCKS_PER_SEC);
 	
-	/*printf("Image size (px): %7i\n#px unsegmented: %7i\n#segments total: %7i\n", this->nvertex, c, segment_labels.size() - 1);
+	//printf("Image size (px): %7i\n#px unsegmented: %7i\n#segments total: %7i\n", this->nvertex, c, segment_labels.size() - 1);
 	
-	FILE *f;
-	f = fopen("F:\\opticalflow\\log.txt", "w");
-	for (int q = 0; q < segment_labels.size(); q++)
-		fprintf(f, "segment: %7i, size: %7i\n", segment_labels[q], segment_sizes[q]);
-	fclose(f);*/
+	
 
 	return 1;
 }
