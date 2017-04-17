@@ -1,9 +1,7 @@
 #include "disjointSetClass.h"
 #include "Kruskal.h"
 
-#include <opencv2\core.hpp>
-#include <opencv2\highgui.hpp>
-#include <opencv2\imgproc.hpp>
+
 
 #include <iostream>
 //#include <fstream>
@@ -169,15 +167,20 @@ int main(int argc, char **argv)
 		}
 
         ImageGraph G = ImageGraph(img_float, depth, param_pixel_vicinity, param_metrics_flag, param_z_coord_weight);
-		cv::Mat labels = -cv::Mat::ones(img_size, CV_32SC1);
-		//int n_segments;
-		G.SegmentationKruskal(labels, param_k, param_min_segment_size, param_segment_size_vis, param_target_num_segments);
+		int n_segments;
+		n_segments = G.SegmentationKruskal(param_k);
+
+		printf("Found segments: %7i\n", n_segments);
+
+		G.PrintSegmentationInfo();
 		
-		//printf("Found segments: %4i\n", n_segments);
+		int pixels_under_thres, seg_under_thres, num_mergers;
+		//int *pixels_undex_thres, int *seg_under_thres, int *num_mergers
+		G.Clustering(param_min_segment_size, param_target_num_segments, &pixels_under_thres, &seg_under_thres, &num_mergers);
+
+		G.PlotSegmentation(0);
 
         {
-			cv::Mat segmentation = cv::Mat::zeros(img_size, CV_8UC3);
-
 			/*cv::Mat p[3];
 			cv::Mat img_3channel(img_size, CV_32FC3);
             img_to_plot.copyTo(p[0]);
@@ -186,54 +189,7 @@ int main(int argc, char **argv)
 			p[0].convertTo(p[0], CV_8UC1, 255.);
 			p[1].convertTo(p[1], CV_8UC1, 255.);
 			p[2].convertTo(p[2], CV_8UC1, 255.);*/
-
-			// paint pixels according to segment labels
-			std::vector<int> segment_labels;
-			std::vector<unsigned char> red, green, blue;
-			int pos_in_color_vector;
-			cv::RNG rng;
-			for (int i = 0; i < img.rows; i++)
-				for (int j = 0; j < img.cols; j++)
-				{
-					pos_in_color_vector = -1;
-					for (int t = 0; t < segment_labels.size(); t++)
-					{
-						if (labels.at<int>(i, j) == segment_labels[t])
-						{
-							pos_in_color_vector = t;
-							break;
-						}
-					}
-					if (labels.at<int>(i, j) != -1 && pos_in_color_vector == -1)
-					{
-						// generate new color for given segment
-						int a = 120, b = 256;
-						red.push_back(rng.uniform(a, b));
-						green.push_back(rng.uniform(a, b));
-						blue.push_back(rng.uniform(a, b));
-						segment_labels.push_back(labels.at<int>(i, j));
-						pos_in_color_vector = segment_labels.size() - 1;
-					}
-					else
-					{
-						// use one of the colors calculated before
-					}
-					if (pos_in_color_vector != -1)
-					{
-						/*p[0].at<unsigned char>(i, j) = red[pos_in_color_vector];
-						p[1].at<unsigned char>(i, j) = green[pos_in_color_vector];
-						p[2].at<unsigned char>(i, j) = blue[pos_in_color_vector];*/
-						segmentation.at<cv::Vec3b>(i, j) = cv::Vec3b(red[pos_in_color_vector],
-							green[pos_in_color_vector], blue[pos_in_color_vector]);
-					}
-				}
-
-			//cv::merge(p, 3, img_3channel);
-			cv::namedWindow("segmented image", cv::WINDOW_AUTOSIZE);
-			//cv::imshow("segmented image", img_3channel);
-			cv::imshow("segmented image", segmentation);
-			cv::waitKey();
-
+			
             /*cv::Mat r(img_size, CV_32FC1), g(img_size, CV_32FC1), b(img_size, CV_32FC1);
             cv::extractChannel(img, r, 1);
             cv::extractChannel(img, g, 2);
@@ -252,8 +208,6 @@ int main(int argc, char **argv)
             cv::namedWindow("rgb image", cv::WINDOW_AUTOSIZE);
             cv::imshow("rgb image", img_to_plot);
             cv::waitKey();*/
-
-
         }
 	}
 	else
