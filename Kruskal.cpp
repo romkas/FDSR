@@ -6,8 +6,7 @@ ImageGraph::ImageGraph(cv::Mat &image, cv::Mat &depth, int v, int flag_metrics, 
 	this->im_wid = image.cols;
 	this->im_hgt = image.rows;
 	this->nvertex = im_wid * im_hgt;
-	int im_type = image.type();
-	this->segmentation_data = new HashTable(nvertex);
+	this->type = image.type();
 	this->z_scale_factor = zcoord_weight;
 	double(*weight_func)(Pixel *, Pixel *);
 	if (flag_metrics == 1)
@@ -15,7 +14,7 @@ ImageGraph::ImageGraph(cv::Mat &image, cv::Mat &depth, int v, int flag_metrics, 
 
 	this->segment_labels = -cv::Mat::ones(image.size(), CV_32SC1);
 
-	Segment *seg;
+	std::pair<Pixel *, Segment *> *temp;
 
 	clock_t t;
 
@@ -28,14 +27,14 @@ ImageGraph::ImageGraph(cv::Mat &image, cv::Mat &depth, int v, int flag_metrics, 
 			for (int j = 0; j < im_wid; j++)
 			{
 #if USE_COLOR == 1
-				seg = add_vertex(i, j, image.at<cv::Vec3f>(i, j), depth.at<float>(i, j));
+                temp = add_vertex(i, j, image.at<cv::Vec3f>(i, j), depth.at<float>(i, j));
 #else
-				seg = add_vertex(i, j, image.at<float>(i, j), depth.at<float>(i, j));
+                temp = add_vertex(i, j, image.at<float>(i, j), depth.at<float>(i, j));
 #endif
-				if (j)
-					add_edge(seg->root, get_vertex_by_index(i, j - 1), weight_func);
-				if (i)
-					add_edge(seg->root, get_vertex_by_index(i - 1, j), weight_func);
+                if (j)
+                    add_edge(temp, get_vertex_by_index(i, j - 1), weight_func);
+                if (i)
+                    add_edge(temp, get_vertex_by_index(i - 1, j), weight_func);
 			}
 		break;
 	case 8:
@@ -43,16 +42,16 @@ ImageGraph::ImageGraph(cv::Mat &image, cv::Mat &depth, int v, int flag_metrics, 
 			for (int j = 0; j < im_wid; j++)
 			{
 #if USE_COLOR == 1
-				seg = add_vertex(i, j, image.at<cv::Vec3f>(i, j), depth.at<float>(i, j));
+                temp = add_vertex(i, j, image.at<cv::Vec3f>(i, j), depth.at<float>(i, j));
 #else
-				seg = add_vertex(i, j, image.at<float>(i, j), depth.at<float>(i, j));
+                temp = add_vertex(i, j, image.at<float>(i, j), depth.at<float>(i, j));
 #endif
 				if (j)
-					add_edge(seg->root, get_vertex_by_index(i, j - 1), weight_func);
-				if (i)
-					add_edge(seg->root, get_vertex_by_index(i - 1, j), weight_func);
-				if (i * j)
-					add_edge(seg->root, get_vertex_by_index(i - 1, j - 1), weight_func);
+                    add_edge(temp, get_vertex_by_index(i, j - 1), weight_func);
+                if (i)
+                    add_edge(temp, get_vertex_by_index(i - 1, j), weight_func);
+                if (i * j)
+                    add_edge(temp, get_vertex_by_index(i - 1, j - 1), weight_func);
 			}
 		break;
 	case 24:
@@ -61,55 +60,55 @@ ImageGraph::ImageGraph(cv::Mat &image, cv::Mat &depth, int v, int flag_metrics, 
 			for (int j = 0; j < im_wid; j++)
 			{
 #if USE_COLOR == 1
-				seg = add_vertex(i, j, image.at<cv::Vec3f>(i, j), depth.at<float>(i, j));
+				temp = add_vertex(i, j, image.at<cv::Vec3f>(i, j), depth.at<float>(i, j));
 #else
-				seg = add_vertex(i, j, image.at<float>(i, j), depth.at<float>(i, j));
+				temp = add_vertex(i, j, image.at<float>(i, j), depth.at<float>(i, j));
 #endif
 				if (i >= 2)
 				{
-					add_edge(seg->root, get_vertex_by_index(i - 1, j), weight_func);
-					add_edge(seg->root, get_vertex_by_index(i - 2, j), weight_func);
+					add_edge(temp, get_vertex_by_index(i - 1, j), weight_func);
+					add_edge(temp, get_vertex_by_index(i - 2, j), weight_func);
 					if (j >= 2)
 					{
-						add_edge(seg->root, get_vertex_by_index(i, j - 1), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i, j - 2), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i - 1, j - 1), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i - 1, j - 2), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i - 2, j - 1), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i - 2, j - 2), weight_func);
+						add_edge(temp, get_vertex_by_index(i, j - 1), weight_func);
+						add_edge(temp, get_vertex_by_index(i, j - 2), weight_func);
+						add_edge(temp, get_vertex_by_index(i - 1, j - 1), weight_func);
+						add_edge(temp, get_vertex_by_index(i - 1, j - 2), weight_func);
+						add_edge(temp, get_vertex_by_index(i - 2, j - 1), weight_func);
+						add_edge(temp, get_vertex_by_index(i - 2, j - 2), weight_func);
 					}
 					else if (j == 1)
 					{
-						add_edge(seg->root, get_vertex_by_index(i, j - 1), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i - 1, j - 1), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i - 2, j - 1), weight_func);
+						add_edge(temp, get_vertex_by_index(i, j - 1), weight_func);
+						add_edge(temp, get_vertex_by_index(i - 1, j - 1), weight_func);
+						add_edge(temp, get_vertex_by_index(i - 2, j - 1), weight_func);
 					}
 				}
 				else if (i == 1)
 				{
-					add_edge(seg->root, get_vertex_by_index(i - 1, j), weight_func);
+					add_edge(temp, get_vertex_by_index(i - 1, j), weight_func);
 					if (j >= 2)
 					{
-						add_edge(seg->root, get_vertex_by_index(i, j - 1), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i, j - 2), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i - 1, j - 1), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i - 1, j - 2), weight_func);
+						add_edge(temp, get_vertex_by_index(i, j - 1), weight_func);
+						add_edge(temp, get_vertex_by_index(i, j - 2), weight_func);
+						add_edge(temp, get_vertex_by_index(i - 1, j - 1), weight_func);
+						add_edge(temp, get_vertex_by_index(i - 1, j - 2), weight_func);
 					}
 					else if (j == 1)
 					{
-						add_edge(seg->root, get_vertex_by_index(i, j - 1), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i - 1, j - 1), weight_func);
+						add_edge(temp, get_vertex_by_index(i, j - 1), weight_func);
+						add_edge(temp, get_vertex_by_index(i - 1, j - 1), weight_func);
 					}
 				}
 				else
 				{
 					if (j >= 2)
 					{
-						add_edge(seg->root, get_vertex_by_index(i, j - 1), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i, j - 2), weight_func);
+						add_edge(temp, get_vertex_by_index(i, j - 1), weight_func);
+						add_edge(temp, get_vertex_by_index(i, j - 2), weight_func);
 					}
 					else if (j == 1)
-						add_edge(seg->root, get_vertex_by_index(i, j - 1), weight_func);
+						add_edge(temp, get_vertex_by_index(i, j - 1), weight_func);
 
 				}
 			}
@@ -121,122 +120,122 @@ ImageGraph::ImageGraph(cv::Mat &image, cv::Mat &depth, int v, int flag_metrics, 
 			for (int j = 0; j < im_wid; j++)
 			{
 #if USE_COLOR == 1
-				seg = add_vertex(i, j, image.at<cv::Vec3f>(i, j), depth.at<float>(i, j));
+                temp = add_vertex(i, j, image.at<cv::Vec3f>(i, j), depth.at<float>(i, j));
 #else
-				seg = add_vertex(i, j, image.at<float>(i, j), depth.at<float>(i, j));
+                temp = add_vertex(i, j, image.at<float>(i, j), depth.at<float>(i, j));
 #endif
 				if (i >= 3)
 				{
-					add_edge(seg->root, get_vertex_by_index(i - 1, j), weight_func);
-					add_edge(seg->root, get_vertex_by_index(i - 2, j), weight_func);
-					add_edge(seg->root, get_vertex_by_index(i - 3, j), weight_func);
+					add_edge(temp, get_vertex_by_index(i - 1, j), weight_func);
+					add_edge(temp, get_vertex_by_index(i - 2, j), weight_func);
+					add_edge(temp, get_vertex_by_index(i - 3, j), weight_func);
 					if (j >= 3)
 					{
-						add_edge(seg->root, get_vertex_by_index(i, j - 1), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i, j - 2), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i, j - 3), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i - 1, j - 1), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i - 1, j - 2), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i - 1, j - 3), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i - 2, j - 1), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i - 2, j - 2), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i - 2, j - 3), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i - 3, j - 1), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i - 3, j - 2), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i - 3, j - 3), weight_func);
+						add_edge(temp, get_vertex_by_index(i, j - 1), weight_func);
+						add_edge(temp, get_vertex_by_index(i, j - 2), weight_func);
+						add_edge(temp, get_vertex_by_index(i, j - 3), weight_func);
+						add_edge(temp, get_vertex_by_index(i - 1, j - 1), weight_func);
+						add_edge(temp, get_vertex_by_index(i - 1, j - 2), weight_func);
+						add_edge(temp, get_vertex_by_index(i - 1, j - 3), weight_func);
+						add_edge(temp, get_vertex_by_index(i - 2, j - 1), weight_func);
+						add_edge(temp, get_vertex_by_index(i - 2, j - 2), weight_func);
+						add_edge(temp, get_vertex_by_index(i - 2, j - 3), weight_func);
+						add_edge(temp, get_vertex_by_index(i - 3, j - 1), weight_func);
+						add_edge(temp, get_vertex_by_index(i - 3, j - 2), weight_func);
+						add_edge(temp, get_vertex_by_index(i - 3, j - 3), weight_func);
 
 					}
 					else if (j == 2)
 					{
-						add_edge(seg->root, get_vertex_by_index(i, j - 1), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i, j - 2), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i - 1, j - 1), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i - 1, j - 2), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i - 2, j - 1), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i - 2, j - 2), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i - 3, j - 1), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i - 3, j - 2), weight_func);
+						add_edge(temp, get_vertex_by_index(i, j - 1), weight_func);
+						add_edge(temp, get_vertex_by_index(i, j - 2), weight_func);
+						add_edge(temp, get_vertex_by_index(i - 1, j - 1), weight_func);
+						add_edge(temp, get_vertex_by_index(i - 1, j - 2), weight_func);
+						add_edge(temp, get_vertex_by_index(i - 2, j - 1), weight_func);
+						add_edge(temp, get_vertex_by_index(i - 2, j - 2), weight_func);
+						add_edge(temp, get_vertex_by_index(i - 3, j - 1), weight_func);
+						add_edge(temp, get_vertex_by_index(i - 3, j - 2), weight_func);
 					}
 					else if (j == 1)
 					{
-						add_edge(seg->root, get_vertex_by_index(i, j - 1), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i - 1, j - 1), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i - 2, j - 1), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i - 3, j - 1), weight_func);
+						add_edge(temp, get_vertex_by_index(i, j - 1), weight_func);
+						add_edge(temp, get_vertex_by_index(i - 1, j - 1), weight_func);
+						add_edge(temp, get_vertex_by_index(i - 2, j - 1), weight_func);
+						add_edge(temp, get_vertex_by_index(i - 3, j - 1), weight_func);
 					}
 				}
 				else if (i == 2)
 				{
-					add_edge(seg->root, get_vertex_by_index(i - 1, j), weight_func);
-					add_edge(seg->root, get_vertex_by_index(i - 2, j), weight_func);
+					add_edge(temp, get_vertex_by_index(i - 1, j), weight_func);
+					add_edge(temp, get_vertex_by_index(i - 2, j), weight_func);
 					if (j >= 3)
 					{
-						add_edge(seg->root, get_vertex_by_index(i, j - 1), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i, j - 2), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i, j - 3), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i - 1, j - 1), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i - 1, j - 2), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i - 1, j - 3), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i - 2, j - 1), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i - 2, j - 2), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i - 2, j - 3), weight_func);
+						add_edge(temp, get_vertex_by_index(i, j - 1), weight_func);
+						add_edge(temp, get_vertex_by_index(i, j - 2), weight_func);
+						add_edge(temp, get_vertex_by_index(i, j - 3), weight_func);
+						add_edge(temp, get_vertex_by_index(i - 1, j - 1), weight_func);
+						add_edge(temp, get_vertex_by_index(i - 1, j - 2), weight_func);
+						add_edge(temp, get_vertex_by_index(i - 1, j - 3), weight_func);
+						add_edge(temp, get_vertex_by_index(i - 2, j - 1), weight_func);
+						add_edge(temp, get_vertex_by_index(i - 2, j - 2), weight_func);
+						add_edge(temp, get_vertex_by_index(i - 2, j - 3), weight_func);
 					}
 					else if (j == 2)
 					{
-						add_edge(seg->root, get_vertex_by_index(i, j - 1), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i, j - 2), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i - 1, j - 1), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i - 1, j - 2), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i - 2, j - 1), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i - 2, j - 2), weight_func);
+						add_edge(temp, get_vertex_by_index(i, j - 1), weight_func);
+						add_edge(temp, get_vertex_by_index(i, j - 2), weight_func);
+						add_edge(temp, get_vertex_by_index(i - 1, j - 1), weight_func);
+						add_edge(temp, get_vertex_by_index(i - 1, j - 2), weight_func);
+						add_edge(temp, get_vertex_by_index(i - 2, j - 1), weight_func);
+						add_edge(temp, get_vertex_by_index(i - 2, j - 2), weight_func);
 					}
 					else if (j == 1)
 					{
-						add_edge(seg->root, get_vertex_by_index(i, j - 1), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i - 1, j - 1), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i - 2, j - 1), weight_func);
+						add_edge(temp, get_vertex_by_index(i, j - 1), weight_func);
+						add_edge(temp, get_vertex_by_index(i - 1, j - 1), weight_func);
+						add_edge(temp, get_vertex_by_index(i - 2, j - 1), weight_func);
 					}
 				}
 				else if (i == 1)
 				{
-					add_edge(seg->root, get_vertex_by_index(i - 1, j), weight_func);
+					add_edge(temp, get_vertex_by_index(i - 1, j), weight_func);
 					if (j >= 3)
 					{
-						add_edge(seg->root, get_vertex_by_index(i, j - 1), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i, j - 2), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i, j - 3), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i - 1, j - 1), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i - 1, j - 2), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i - 1, j - 3), weight_func);
+						add_edge(temp, get_vertex_by_index(i, j - 1), weight_func);
+						add_edge(temp, get_vertex_by_index(i, j - 2), weight_func);
+						add_edge(temp, get_vertex_by_index(i, j - 3), weight_func);
+						add_edge(temp, get_vertex_by_index(i - 1, j - 1), weight_func);
+						add_edge(temp, get_vertex_by_index(i - 1, j - 2), weight_func);
+						add_edge(temp, get_vertex_by_index(i - 1, j - 3), weight_func);
 					}
 					else if (j == 2)
 					{
-						add_edge(seg->root, get_vertex_by_index(i, j - 1), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i, j - 2), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i - 1, j - 1), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i - 1, j - 2), weight_func);
+						add_edge(temp, get_vertex_by_index(i, j - 1), weight_func);
+						add_edge(temp, get_vertex_by_index(i, j - 2), weight_func);
+						add_edge(temp, get_vertex_by_index(i - 1, j - 1), weight_func);
+						add_edge(temp, get_vertex_by_index(i - 1, j - 2), weight_func);
 					}
 					else if (j == 1)
 					{
-						add_edge(seg->root, get_vertex_by_index(i, j - 1), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i - 1, j - 1), weight_func);
+						add_edge(temp, get_vertex_by_index(i, j - 1), weight_func);
+						add_edge(temp, get_vertex_by_index(i - 1, j - 1), weight_func);
 					}
 				}
 				else
 				{
 					if (j >= 3)
 					{
-						add_edge(seg->root, get_vertex_by_index(i, j - 1), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i, j - 2), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i, j - 3), weight_func);
+						add_edge(temp, get_vertex_by_index(i, j - 1), weight_func);
+						add_edge(temp, get_vertex_by_index(i, j - 2), weight_func);
+						add_edge(temp, get_vertex_by_index(i, j - 3), weight_func);
 					}
 					if (j == 2)
 					{
-						add_edge(seg->root, get_vertex_by_index(i, j - 1), weight_func);
-						add_edge(seg->root, get_vertex_by_index(i, j - 2), weight_func);
+						add_edge(temp, get_vertex_by_index(i, j - 1), weight_func);
+						add_edge(temp, get_vertex_by_index(i, j - 2), weight_func);
 					}
 					else if (j == 1)
-						add_edge(seg->root, get_vertex_by_index(i, j - 1), weight_func);
+						add_edge(temp, get_vertex_by_index(i, j - 1), weight_func);
 				}
 			}
 		}
@@ -268,62 +267,14 @@ ImageGraph::ImageGraph(cv::Mat &image, cv::Mat &depth, int v, int flag_metrics, 
 
 ImageGraph::~ImageGraph()
 {
-	for (int i = 0; i < edges.size(); i++)
+    for (int i = 0; i < edges.size(); i++)
 		delete edges[i];
-	for (int i = 0; i < pixels.size(); i++)
-		delete pixels[i];
-	delete segmentation_data;
-	for (auto iter = partition.begin(); iter != partition.end(); iter++)
-		delete *iter;
+    for (int i = 0; i < pixels.size(); i++)
+    {
+        delete pixels[i].first;
+        delete pixels[i].second;
+    }
 }
-
-Pixel* ImageGraph::disjoint_FindSet(const Pixel *pver) const
-{
-	Pixel *par = pver->disjoint_parent;
-	if (pver != par)
-	{
-		par = disjoint_FindSet(par);
-	}
-	return par;
-}
-
-void ImageGraph::disjoint_Union(Segment *pa, Segment *pb, double w)
-{
-	if (pa->root->disjoint_rank > pb->root->disjoint_rank)
-	{
-		pb->root->disjoint_parent = pa->root;
-		//pa->root = 
-		pa->max_weight = w;
-		pa->numelements += pb->numelements;
-		pa->segment.splice(pa->segment.end(), pb->segment);
-		partition.erase(pb);
-		delete pb;
-	}
-	else
-	{
-		pa->root->disjoint_parent = pb->root;
-		if (pa->root->disjoint_rank == pb->root->disjoint_rank)
-			pb->root->disjoint_rank++;
-		pb->max_weight = w;
-		pb->numelements += pa->numelements;
-		pb->segment.splice(pb->segment.end(), pa->segment);
-		partition.erase(pa);
-		delete pa;
-	}
-}
-
-//double ImageGraph::calc_weight(Pixel *n1, Pixel *n2)
-//{
-//	double r;
-//#if USE_COLOR == 1
-//    cv::Vec3f v = n1->pixvalue - n2->pixvalue;
-//	r = v.dot(v);
-//#else
-//    float v = n1->pixvalue - n2->pixvalue;
-//	r = v * v;
-//#endif
-//
-//}
 
 double ImageGraph::calc_weight_dist(Pixel *n1, Pixel *n2)
 {
@@ -341,7 +292,6 @@ double ImageGraph::calc_weight_dist(Pixel *n1, Pixel *n2)
     return cv::sqrt(r + c * (coords.dot(coords) + z));
 }
 
-
 //void ImageGraph::MakeLabels()
 //{
 //	clock_t t = clock();
@@ -357,21 +307,26 @@ double ImageGraph::calc_weight_dist(Pixel *n1, Pixel *n2)
 //	printf("TIME (Labeling segments                   ) (ms): %8.2f\n", (double)t * 1000. / CLOCKS_PER_SEC);
 //}
 
-void ImageGraph::Clustering(int min_segment_size, int total_num_segments, int *pixels_undex_thres, int *seg_under_thres, int *num_mergers)
+void ImageGraph::Clustering(int min_segment_size, int total_num_segments, int *pixels_under_thres, int *seg_under_thres, int *num_mergers)
 {
-	*pixels_undex_thres = 0;
+	*pixels_under_thres = 0;
 	*seg_under_thres = 0;
 	*num_mergers = 0;
 	clock_t t = clock();
 	// remove small segments
 	auto iter = partition.begin();
-	while (iter != partition.end() && (*iter)->numelements < min_segment_size)
-	{
+	while (iter != partition.end()/* && (*iter)->numelements < min_segment_size*/)
+    //for (auto iter = partition.begin(); iter != partition.end(); iter++)
+    {
 		*seg_under_thres++;
-		*pixels_undex_thres += (*iter)->numelements;
-		iter++;
+		*pixels_under_thres += (*iter)->numelements;
+        if ((*iter)->numelements < min_segment_size)
+            iter = partition.erase(iter);
+        else
+            iter++;
+		//iter++;
 	}
-	partition.erase(partition.begin(), iter);
+	//partition.erase(partition.begin(), iter);
 	t = clock() - t;
 	printf("TIME (Removing small segments             ) (ms): %8.2f\n", (double)t * 1000. / CLOCKS_PER_SEC);
 
@@ -419,56 +374,33 @@ void ImageGraph::PrintSegmentationInfo() const
 int ImageGraph::SegmentationKruskal(double k)
 {
 	Segment *seg1, *seg2;
-	uint64 z1, z2;
-	Pixel *pix1, *pix2;
+    std::pair<Pixel *, Segment *> *temp1, *temp2;
 
 	clock_t t = clock();
 	for (int i = 0; i < nedge; i++)
 	{
-		pix1 = disjoint_FindSet(edges[i]->x);
-		pix2 = disjoint_FindSet(edges[i]->y);
-		if (pix1 == pix2)
-			continue;
-
-		seg1 = segmentation_data->Search(pix1, &z1);
-		seg2 = segmentation_data->Search(pix2, &z2);
+        temp1 = disjoint_FindSet(edges[i]->x);
+        temp2 = disjoint_FindSet(edges[i]->y);
+        seg1 = temp1->second;
+        seg2 = temp2->second;
+        if (seg1 == seg2)
+            continue;
 
 		if (seg1->numelements * seg2->numelements == 1)
-		{
-			disjoint_Union(seg1, seg2, edges[i]->weight);
-			segmentation_data->Delete(z1);
-		}
+            disjoint_Union(temp1, temp2, edges[i]->weight);
 		else if (seg1->numelements == 1)
-		{
 			if (edges[i]->weight <= seg2->max_weight + k / seg2->numelements)
-			{
-				disjoint_Union(seg1, seg2, edges[i]->weight);
-				segmentation_data->Delete(z1);
-			}
-		}
+                disjoint_Union(temp1, temp2, edges[i]->weight);
 		else if (seg2->numelements == 1)
-		{
 			if (edges[i]->weight <= seg1->max_weight + k / seg1->numelements)
-			{
-				disjoint_Union(seg1, seg2, edges[i]->weight);
-				segmentation_data->Delete(z2);
-			}
-		}
+                disjoint_Union(temp1, temp2, edges[i]->weight);
 		else
-		{
 			if (
 				edges[i]->weight <=
 				std::min(seg1->max_weight + k / seg1->numelements,
 					seg2->max_weight + k / seg2->numelements)
 				)
-			{
-				disjoint_Union(seg1, seg2, edges[i]->weight);
-				if (seg1->root->disjoint_rank > seg2->root->disjoint_rank)
-					segmentation_data->Delete(z2);
-				else
-					segmentation_data->Delete(z1);
-			}
-		}
+                disjoint_Union(temp1, temp2, edges[i]->weight);
 	}
 	t = clock() - t;
 	printf("TIME (Kruskal segmentation                ) (ms): %8.2f\n", (double)t * 1000. / CLOCKS_PER_SEC);

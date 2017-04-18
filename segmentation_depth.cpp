@@ -13,13 +13,13 @@ void print_help()
 {
 	printf("Program usage:\narg1 - size of pixel vicinity (4, 8, 24, 48)\narg2 - metric function for edge weight calculation\n"
 		"arg3 - Kruskal k parameter\narg4 - segment size threshold\narg5 - target number of segments\n"
-		"arg6 - segment size threshold (for visualization)\narg7 - ");
+		"arg6 - ");
 #if USE_COLOR == 1
 	printf("color image file path");
 #else
 	printf("grayscale image file path");
 #endif
-	printf("\narg8 - is depth map data given\narg9- depth data file path");
+	printf("\narg7 - is depth map data given\narg8- depth data file path");
 }
 
 void ReadPFMFile(cv::Mat& img, const char* filename)
@@ -93,7 +93,7 @@ void ReadPFMFile(cv::Mat& img, const char* filename)
 
 int main(int argc, char **argv)
 {
-	if (argc >= 9)
+	if (argc >= 8)
 	{
 		int c = 1;
 		int param_pixel_vicinity = std::atoi(argv[c++]);
@@ -101,7 +101,7 @@ int main(int argc, char **argv)
 		double param_k = std::atof(argv[c++]);
 		int param_min_segment_size = std::atoi(argv[c++]);
 		int param_target_num_segments = std::atoi(argv[c++]);
-		int param_segment_size_vis = std::atoi(argv[c++]);
+		//int param_segment_size_vis = std::atoi(argv[c++]);
 		//bool param_color = (bool)std::atoi(argv[c++]);
 		double param_z_coord_weight = std::atof(argv[c++]);
 

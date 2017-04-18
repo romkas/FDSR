@@ -18,15 +18,14 @@ class ImageGraph
 	{
 		bool operator()(const Segment *s1, const Segment *s2) const
 		{
-			return s1->numelements != s2->numelements ? s1->numelements < s2->numelements : s1->label < s2->label;
+			//return s1->numelements != s2->numelements ? s1->numelements < s2->numelements : s1->label < s2->label;
+            return s1->label < s2->label;
 		}
 	} compare_segments;
 
 	std::vector<Edge*> edges;
-    std::vector<Pixel*> pixels;
+    std::vector<std::pair<Pixel*, Segment *>> pixels;
 	std::set<Segment *, compare_segments> partition;
-	std::vector<std::pair<Pixel *, Segment *>> v;
-	HashTable *segmentation_data;
 	
 	float z_scale_factor;
 	size_t nvertex, nedge, im_wid, im_hgt;
@@ -35,8 +34,39 @@ class ImageGraph
 	cv::RNG color_rng;
 	cv::Mat segment_labels;
 
-	Pixel* disjoint_FindSet(const Pixel *pver) const;
-	void disjoint_Union(Segment *pa, Segment *pb, double w);
+    std::pair<Pixel *, Segment *>* disjoint_FindSet(std::pair<Pixel *, Segment *> *p)
+    {
+        std::pair<Pixel *, Segment *> *par = p->second->disjoint_parent;
+        if (p->second->disjoint_parent != par)
+        {
+            par = disjoint_FindSet(par);
+            p->second = par->second;
+        }
+        return par;
+    }
+
+    void disjoint_Union(std::pair<Pixel *, Segment *> *p1, std::pair<Pixel *, Segment *> *p2, double w)
+    {
+        Segment *pa = p1->second, *pb = p2->second;
+        if (pa->disjoint_rank > pb->disjoint_rank)
+        {
+            pb->disjoint_parent = p1;
+            pa->max_weight = w;
+            pa->numelements += pb->numelements;
+            pa->segment.splice(pa->segment.end(), pb->segment);
+            partition.erase(pb);
+        }
+        else
+        {
+            pa->disjoint_parent = p2;
+            if (pa->disjoint_rank == pb->disjoint_rank)
+                pb->disjoint_rank++;
+            pb->max_weight = w;
+            pb->numelements += pa->numelements;
+            pb->segment.splice(pb->segment.end(), pa->segment);
+            partition.erase(pa);
+        }
+    }
 
 	//------------------------------------------
     //double calc_weight(Pixel *n1, Pixel *n2);
@@ -47,28 +77,28 @@ class ImageGraph
 	//------------------------------------------
 
 #if USE_COLOR == 1
-	Segment* add_vertex(int i, int j, cv::Vec3f &v, float dep)
+    std::pair<Pixel *, Segment *>* add_vertex(int i, int j, cv::Vec3f &v, float dep)
 #else
-	Segment* add_vertex(int i, int j, float v, float dep)
+    std::pair<Pixel *, Segment *>* add_vertex(int i, int j, float v, float dep)
 #endif
 	{
 		Segment *seg = new Segment(1, i * im_wid + j, (double)UINT64_MAX, v, i, j, dep, z_scale_factor);
-		partition.insert(seg);
-		pixels.push_back(seg->root);
-		segmentation_data->Insert(seg);
-		return seg;
+		pixels.push_back(std::make_pair(seg->root, seg));
+        seg->disjoint_parent = &pixels.back();
+        partition.insert(seg);
+        return &pixels.back();
 	}
 
-	Edge* add_edge(Pixel *pa, Pixel *pb, double(*wfunc)(Pixel *, Pixel *))
-	{
-		Edge *e = new Edge(pa, pb, (*wfunc)(pa, pb));
+    Edge* add_edge(std::pair<Pixel *, Segment *> *pa, std::pair<Pixel *, Segment *> *pb, double(*wfunc)(Pixel *, Pixel *))
+    {
+		Edge *e = new Edge(pa, pb, (*wfunc)(pa->first, pb->first));
 		edges.push_back(e);
 		return e;
 	}
 
-	Pixel* ImageGraph::get_vertex_by_index(int i, int j)
-	{
-		return pixels[i * this->im_wid + j];
+	std::pair<Pixel *, Segment *>* get_vertex_by_index(int i, int j)
+    {
+		return &pixels[i * this->im_wid + j];
 	}
 
 	//void calc_similatiry();
