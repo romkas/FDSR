@@ -13,13 +13,13 @@ void print_help()
 {
 	printf("Program usage:\narg1 - size of pixel vicinity (4, 8, 24, 48)\narg2 - metric function for edge weight calculation\n"
 		"arg3 - Kruskal k parameter\narg4 - segment size threshold\narg5 - target number of segments\n"
-		"arg6 - ");
+		"arg6 - z");
 #if USE_COLOR == 1
 	printf("color image file path");
 #else
 	printf("grayscale image file path");
 #endif
-	printf("\narg7 - is depth map data given\narg8- depth data file path");
+	printf("\narg7 - is depth map data given\narg8 - z coordinate scaling\narg9 - depth data file path");
 }
 
 void ReadPFMFile(cv::Mat& img, const char* filename)
@@ -103,9 +103,9 @@ int main(int argc, char **argv)
 		int param_target_num_segments = std::atoi(argv[c++]);
 		//int param_segment_size_vis = std::atoi(argv[c++]);
 		//bool param_color = (bool)std::atoi(argv[c++]);
-		double param_z_coord_weight = std::atof(argv[c++]);
+		double param_z_coord_weight;
 
-		cv::Mat img, img_float, img_to_plot, depth;
+		cv::Mat img, img_float, depth;
 #if USE_COLOR == 1
 		img = cv::imread(argv[c++], cv::IMREAD_COLOR);
 #else
@@ -122,11 +122,19 @@ int main(int argc, char **argv)
 		int width = img_size.width, height = img_size.height;
 		int img_type = img.type();
 
+		double _min, _max;
+
 		bool param_depthdata = (bool)std::atoi(argv[c++]);
 		if (param_depthdata)
+		{
 			ReadPFMFile(depth, argv[c++]);
+			param_z_coord_weight = std::atof(argv[c++]);
+		}
 		else
+		{
 			depth = cv::Mat::zeros(img_size, img_type);
+			param_z_coord_weight = 1.;
+		}
 
 		if (param_depthdata)
 			cv::resize(depth, depth, cv::Size(target_w, target_h), 0, 0, cv::INTER_LINEAR);
@@ -140,75 +148,105 @@ int main(int argc, char **argv)
 		else
 			img_float = img;
 
+		ImageGraph G0 = ImageGraph(img_float, depth, param_pixel_vicinity, param_metrics_flag, param_z_coord_weight);
+		int n_segments;
+		n_segments = G0.SegmentationKruskal(param_k);
+
+		printf("Found segments: %7i\n", n_segments);
+
+		int pixels_under_thres, seg_under_thres, num_mergers;
+		G0.Clustering(param_min_segment_size, param_target_num_segments, &pixels_under_thres, &seg_under_thres, &num_mergers);
+
 		{
-			double min, max;
-			/*img.convertTo(img_to_plot, CV_8UC3, 255.);
-			cv::Mat p[3];
-			cv::split(img_to_plot, p);
-			cv::minMaxIdx(p[0], &min, &max);
-			p[0] = (p[0] - (float)min) / ((float)max - (float)min);
-			cv::minMaxIdx(p[1], &min, &max);
-			p[1] = (p[1] - (float)min) / ((float)max - (float)min);
-			cv::minMaxIdx(p[2], &min, &max);
-			p[2] = (p[2] - (float)min) / ((float)max - (float)min);
-			cv::merge(p, 3, img_to_plot);*/
-			img_to_plot = cv::Mat(img);
+			cv::Mat img_to_plot = cv::Mat(img);
 			cv::namedWindow("source image", cv::WINDOW_AUTOSIZE);
 			cv::imshow("source image", img_to_plot);
 			cv::waitKey(100);
 			if (param_depthdata)
 			{
-				cv::minMaxIdx(depth, &min, &max);
-				img_to_plot = (depth - (float)min) / ((float)max - (float)min);
+				cv::minMaxIdx(depth, &_min, &_max);
+				img_to_plot = (depth - (float)_min) / ((float)_max - (float)_min);
 				cv::namedWindow("source depth", cv::WINDOW_AUTOSIZE);
 				cv::imshow("source depth", img_to_plot);
 				cv::waitKey(100);
 			}
 		}
 
-        ImageGraph G = ImageGraph(img_float, depth, param_pixel_vicinity, param_metrics_flag, param_z_coord_weight);
-		int n_segments;
+		G0.PlotSegmentation(100, "segmented");
+
+		cv::Mat img_blurred(img_float.size(), img_float.type()), depth_blurred;
+
+		clock_t t = clock();
+		cv::GaussianBlur(img_float, img_blurred, cv::Size(5, 5), 0.7, 0.7, cv::BORDER_CONSTANT);
+		t = clock() - t;
+		printf("TIME (Gaussian blur. Src                  ) (ms): %8.2f\n", (double)t * 1000. / CLOCKS_PER_SEC);
+
+		if (param_depthdata)
+			depth_blurred = cv::Mat(depth.size(), depth.type());
+		
+		
+		cv::Mat depth_blurred2(depth.size(), depth.type());
+		t = clock();
+		cv::GaussianBlur(depth, depth_blurred, cv::Size(3, 3), 0.7, 0.7, cv::BORDER_CONSTANT);
+		cv::GaussianBlur(depth, depth_blurred2, cv::Size(7, 7), 0.7, 0.7, cv::BORDER_CONSTANT);
+		depth += cv::abs(depth_blurred2 - depth_blurred);
+		cv::minMaxIdx(depth, &_min, &_max);
+		for (int i = 0; i < depth.rows; i++)
+			for (int j = 0; j < depth.cols; j++)
+			{
+				if (depth.at<float>(i, j) > _max)
+					depth.at<float>(i, j) = (float)_max;
+			}
+		t = clock() - t;
+		printf("TIME (Gaussian blur and DoG. Depth          (ms): %8.2f\n", (double)t * 1000. / CLOCKS_PER_SEC);
+
+		{
+			cv::Mat img_to_plot;
+			cv::minMaxIdx(depth, &_min, &_max);
+			img_to_plot = (depth - (float)_min) / ((float)_max - (float)_min);
+			cv::namedWindow("source depth", cv::WINDOW_AUTOSIZE);
+			cv::imshow("source depth", img_to_plot);
+			cv::waitKey(100);
+		}
+		
+		
+		
+		{
+			cv::Mat img_to_plot = cv::Mat(img_blurred);
+			cv::Mat p[3];
+			cv::split(img_to_plot, p);
+			cv::minMaxIdx(p[0], &_min, &_max);
+			p[0] = (p[0] - (float)_min) / ((float)_max - (float)_min);
+			cv::minMaxIdx(p[1], &_min, &_max);
+			p[1] = (p[1] - (float)_min) / ((float)_max - (float)_min);
+			cv::minMaxIdx(p[2], &_min, &_max);
+			p[2] = (p[2] - (float)_min) / ((float)_max - (float)_min);
+			cv::merge(p, 3, img_to_plot);
+			cv::namedWindow("blurred image", cv::WINDOW_AUTOSIZE);
+			cv::imshow("blurred image", img_to_plot);
+			cv::waitKey(100);
+			if (param_depthdata)
+			{
+				cv::minMaxIdx(depth, &_min, &_max);
+				img_to_plot = (depth - (float)_min) / ((float)_max - (float)_min);
+				cv::namedWindow("enhanced depth", cv::WINDOW_AUTOSIZE);
+				cv::imshow("enhanced depth", img_to_plot);
+				cv::waitKey(100);
+			}
+		}
+
+        ImageGraph G = ImageGraph(img_blurred, depth, param_pixel_vicinity, param_metrics_flag, param_z_coord_weight);
+		
 		n_segments = G.SegmentationKruskal(param_k);
 
 		printf("Found segments: %7i\n", n_segments);
 
 		G.PrintSegmentationInfo();
 		
-		int pixels_under_thres, seg_under_thres, num_mergers;
 		//int *pixels_undex_thres, int *seg_under_thres, int *num_mergers
 		G.Clustering(param_min_segment_size, param_target_num_segments, &pixels_under_thres, &seg_under_thres, &num_mergers);
 
-		G.PlotSegmentation(0);
-
-        {
-			/*cv::Mat p[3];
-			cv::Mat img_3channel(img_size, CV_32FC3);
-            img_to_plot.copyTo(p[0]);
-			img_to_plot.copyTo(p[1]);
-			img_to_plot.copyTo(p[2]);
-			p[0].convertTo(p[0], CV_8UC1, 255.);
-			p[1].convertTo(p[1], CV_8UC1, 255.);
-			p[2].convertTo(p[2], CV_8UC1, 255.);*/
-			
-            /*cv::Mat r(img_size, CV_32FC1), g(img_size, CV_32FC1), b(img_size, CV_32FC1);
-            cv::extractChannel(img, r, 1);
-            cv::extractChannel(img, g, 2);
-            cv::extractChannel(img, b, 3);
-            cv::minMaxIdx(r, &min, &max);
-            r = (r - (float)min) / ((float)max - (float)min);
-            cv::minMaxIdx(g, &min, &max);
-            g = (g - (float)min) / ((float)max - (float)min);
-            cv::minMaxIdx(b, &min, &max);
-            b = (b - (float)min) / ((float)max - (float)min);
-            p[0] = r;
-            p[1] = g;
-            p[2] = b;
-            cv::merge(p, 3, img_to_plot);
-
-            cv::namedWindow("rgb image", cv::WINDOW_AUTOSIZE);
-            cv::imshow("rgb image", img_to_plot);
-            cv::waitKey();*/
-        }
+		G.PlotSegmentation(0, "segmented filtered");
 	}
 	else
 		print_help();

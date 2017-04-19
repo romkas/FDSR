@@ -14,6 +14,16 @@
 
 class ImageGraph
 {
+#if EDGES_VECTOR == 0
+	typedef struct
+	{
+		bool operator()(const Edge *e1, const Edge *e2) const
+		{
+			return e1->weight < e2->weight;
+		}
+	} compare_edges;
+#endif
+	
 	typedef struct
 	{
 		bool operator()(const Segment *s1, const Segment *s2) const
@@ -23,8 +33,12 @@ class ImageGraph
 		}
 	} compare_segments;
 
-	std::vector<Edge*> edges;
-    std::vector<std::pair<Pixel*, Segment *>> pixels;
+#if EDGES_VECTOR == 1
+	std::vector<Edge *> edges;
+#else
+	std::set<Edge *, compare_edges> edges;
+#endif
+	std::vector<std::pair<Pixel*, Segment *> *> pixels;
 	std::set<Segment *, compare_segments> partition;
 	
 	float z_scale_factor;
@@ -36,13 +50,13 @@ class ImageGraph
 
     std::pair<Pixel *, Segment *>* disjoint_FindSet(std::pair<Pixel *, Segment *> *p)
     {
-        std::pair<Pixel *, Segment *> *par = p->second->disjoint_parent;
-        if (p->second->disjoint_parent != par)
+        std::pair<Pixel *, Segment *> *ppar = p->second->disjoint_parent;
+        if (p != ppar)
         {
-            par = disjoint_FindSet(par);
-            p->second = par->second;
+            ppar = disjoint_FindSet(ppar);
+            p->second = ppar->second;
         }
-        return par;
+        return ppar;
     }
 
     void disjoint_Union(std::pair<Pixel *, Segment *> *p1, std::pair<Pixel *, Segment *> *p2, double w)
@@ -83,22 +97,26 @@ class ImageGraph
 #endif
 	{
 		Segment *seg = new Segment(1, i * im_wid + j, (double)UINT64_MAX, v, i, j, dep, z_scale_factor);
-		pixels.push_back(std::make_pair(seg->root, seg));
-        seg->disjoint_parent = &pixels.back();
+		pixels.push_back(new std::pair<Pixel *, Segment *>(seg->root, seg));
+		pixels.back()->second->disjoint_parent = pixels.back();
         partition.insert(seg);
-        return &pixels.back();
+		return pixels.back();
 	}
 
     Edge* add_edge(std::pair<Pixel *, Segment *> *pa, std::pair<Pixel *, Segment *> *pb, double(*wfunc)(Pixel *, Pixel *))
     {
 		Edge *e = new Edge(pa, pb, (*wfunc)(pa->first, pb->first));
+#if EDGES_VECTOR
 		edges.push_back(e);
+#else
+		edges.insert(e);
+#endif
 		return e;
 	}
 
 	std::pair<Pixel *, Segment *>* get_vertex_by_index(int i, int j)
     {
-		return &pixels[i * this->im_wid + j];
+		return pixels[i * this->im_wid + j];
 	}
 
 	//void calc_similatiry();
@@ -114,6 +132,6 @@ public:
 	int SegmentationKruskal(double k);
 	//void MakeLabels();
 	void Clustering(int min_segment_size, int total_num_segments, int *pixels_under_thres, int *seg_under_thres, int *num_mergers);
-	void PlotSegmentation(int);
+	void PlotSegmentation(int, const char *);
 	void PrintSegmentationInfo() const;
 };

@@ -253,12 +253,14 @@ ImageGraph::ImageGraph(cv::Mat &image, cv::Mat &depth, int v, int flag_metrics, 
 
 	printf("TIME (Graph construction                  ) (ms): %8.2f\n", (double)t * 1000. / CLOCKS_PER_SEC);
 
+#if EDGES_VECTOR == 1
 	t = clock();
 	std::sort(edges.begin(), edges.end(),
 		[](const Edge *e1, const Edge *e2) { return e1->weight < e2->weight; }
 	);
 	t = clock() - t;
 	printf("TIME (Edges list sorting                  ) (ms): %8.2f\n", (double)t * 1000. / CLOCKS_PER_SEC);
+#endif
 
 	//t_global = clock() - t_global;
 	//printf("TIME (Total execution time                ) (ms): %8.2f\n", (double)t_global * 1000. / CLOCKS_PER_SEC);
@@ -267,13 +269,17 @@ ImageGraph::ImageGraph(cv::Mat &image, cv::Mat &depth, int v, int flag_metrics, 
 
 ImageGraph::~ImageGraph()
 {
-    for (int i = 0; i < edges.size(); i++)
+#if EDGES_VECTOR == 1
+	for (int i = 0; i < edges.size(); i++)
 		delete edges[i];
+#else
+	for (auto iter = edges.begin(); iter != edges.end(); iter++)
+		delete (*iter);
+#endif
+	for (auto iter = partition.begin(); iter != partition.end(); iter++)
+		delete (*iter);
     for (int i = 0; i < pixels.size(); i++)
-    {
-        delete pixels[i].first;
-        delete pixels[i].second;
-    }
+		delete pixels[i];
 }
 
 double ImageGraph::calc_weight_dist(Pixel *n1, Pixel *n2)
@@ -318,10 +324,12 @@ void ImageGraph::Clustering(int min_segment_size, int total_num_segments, int *p
 	while (iter != partition.end()/* && (*iter)->numelements < min_segment_size*/)
     //for (auto iter = partition.begin(); iter != partition.end(); iter++)
     {
-		*seg_under_thres++;
-		*pixels_under_thres += (*iter)->numelements;
-        if ((*iter)->numelements < min_segment_size)
-            iter = partition.erase(iter);
+		if ((*iter)->numelements < min_segment_size)
+		{
+			*seg_under_thres++;
+			*pixels_under_thres += (*iter)->numelements;
+			iter = partition.erase(iter);
+		}
         else
             iter++;
 		//iter++;
@@ -341,7 +349,7 @@ void ImageGraph::Clustering(int min_segment_size, int total_num_segments, int *p
 
 }
 
-void ImageGraph::PlotSegmentation(int waittime)
+void ImageGraph::PlotSegmentation(int waittime, const char *windowname)
 {
 	cv::Mat segmentation = cv::Mat::zeros(segment_labels.size(), CV_8UC3);
 	int a = 120, b = 256;
@@ -356,8 +364,8 @@ void ImageGraph::PlotSegmentation(int waittime)
 		}
 	}
 
-	cv::namedWindow("segmented image", cv::WINDOW_AUTOSIZE);
-	cv::imshow("segmented image", segmentation);
+	cv::namedWindow(windowname, cv::WINDOW_AUTOSIZE);
+	cv::imshow(windowname, segmentation);
 	cv::waitKey(waittime);
 }
 
@@ -377,30 +385,60 @@ int ImageGraph::SegmentationKruskal(double k)
     std::pair<Pixel *, Segment *> *temp1, *temp2;
 
 	clock_t t = clock();
+#if EDGES_VECTOR == 1
 	for (int i = 0; i < nedge; i++)
 	{
-        temp1 = disjoint_FindSet(edges[i]->x);
-        temp2 = disjoint_FindSet(edges[i]->y);
+		temp1 = disjoint_FindSet(edges[i]->x);
+		temp2 = disjoint_FindSet(edges[i]->y);
+#else
+	for (auto iter = edges.begin(); iter != edges.end(); iter++)
+	{
+		temp1 = disjoint_FindSet((*iter)->x);
+		temp2 = disjoint_FindSet((*iter)->y);
+#endif
         seg1 = temp1->second;
         seg2 = temp2->second;
         if (seg1 == seg2)
             continue;
 
 		if (seg1->numelements * seg2->numelements == 1)
+#if EDGES_VECTOR == 1
             disjoint_Union(temp1, temp2, edges[i]->weight);
+#else
+			disjoint_Union(temp1, temp2, (*iter)->weight);
+#endif
 		else if (seg1->numelements == 1)
+#if EDGES_VECTOR == 1
 			if (edges[i]->weight <= seg2->max_weight + k / seg2->numelements)
                 disjoint_Union(temp1, temp2, edges[i]->weight);
+#else
+			if ((*iter)->weight <= seg2->max_weight + k / seg2->numelements)
+				disjoint_Union(temp1, temp2, (*iter)->weight);
+#endif
 		else if (seg2->numelements == 1)
+#if EDGES_VECTOR == 1
 			if (edges[i]->weight <= seg1->max_weight + k / seg1->numelements)
                 disjoint_Union(temp1, temp2, edges[i]->weight);
+#else
+			if ((*iter)->weight <= seg1->max_weight + k / seg1->numelements)
+				disjoint_Union(temp1, temp2, (*iter)->weight);
+#endif
 		else
+#if EDGES_VECTOR == 1
 			if (
 				edges[i]->weight <=
 				std::min(seg1->max_weight + k / seg1->numelements,
 					seg2->max_weight + k / seg2->numelements)
 				)
                 disjoint_Union(temp1, temp2, edges[i]->weight);
+#else
+			if (
+				(*iter)->weight <=
+				std::min(seg1->max_weight + k / seg1->numelements,
+					seg2->max_weight + k / seg2->numelements)
+				)
+				disjoint_Union(temp1, temp2, (*iter)->weight);
+#endif
 	}
 	t = clock() - t;
 	printf("TIME (Kruskal segmentation                ) (ms): %8.2f\n", (double)t * 1000. / CLOCKS_PER_SEC);
