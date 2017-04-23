@@ -285,7 +285,7 @@ ImageGraph::~ImageGraph()
 double ImageGraph::calc_weight_dist(Pixel *n1, Pixel *n2)
 {
     double r;
-	int c = 1;
+	//int c = 1;
 #if USE_COLOR == 1
     cv::Vec3f v = n1->pixvalue - n2->pixvalue;
     r = v.dot(v);
@@ -295,7 +295,7 @@ double ImageGraph::calc_weight_dist(Pixel *n1, Pixel *n2)
 #endif
     cv::Vec2i coords = n1->horiz_coords - n2->horiz_coords;
 	float z = n1->depth - n2->depth;
-    return cv::sqrt(r + c * (coords.dot(coords) + z));
+    return cv::sqrt(r + coords.dot(coords) + z * z);
 }
 
 //void ImageGraph::MakeLabels()

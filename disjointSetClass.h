@@ -31,7 +31,7 @@ struct Pixel
         pixvalue(pixval), depth(sc * z), horiz_coords(cv::Vec2i(x, y))
 #else
 	Pixel(float pixval, int x, int y, float z, float sc = 1.f) :
-        pixval, depth(sc * z), horiz_coords(cv::Vec2i(x, y))
+        pixvalue(pixval), depth(sc * z), horiz_coords(cv::Vec2i(x, y))
 #endif
 	{}
 };
