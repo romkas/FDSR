@@ -153,6 +153,8 @@ void RunIteration(
 	double param_k,
 	int param_min_segment_size,
 	int param_target_num_segments,
+	int clustering_mode,
+	std::vector<float>& clustering_params,
 	int waitkey,
 	const char *windowname)
 {
@@ -161,9 +163,16 @@ void RunIteration(
 	printf("==================================\n");
 	ImageGraph G = ImageGraph(img, depth, param_pixel_vicinity, param_metrics_flag, param_z_coord_weight);
 	n_segments = G.SegmentationKruskal(param_k);
-	printf("Found segments: %7i\n", n_segments);
-	G.Clustering(param_min_segment_size, param_target_num_segments, &pixels_under_thres, &seg_under_thres, &num_mergers);
+	G.Clustering(
+		param_min_segment_size,
+		param_target_num_segments,
+		clustering_mode,
+		clustering_params,
+		&pixels_under_thres, &seg_under_thres, &num_mergers);
 	G.PlotSegmentation(waitkey, windowname);
+	printf("Found segments:           %7i\n", n_segments);
+	printf("Pixels under threshold:   %7i\nSegments under threshold: %7i\nNumber of mergers:        %7i\n", pixels_under_thres, seg_under_thres, num_mergers);
+	G.PrintSegmentationInfo("F:\\opticalflow\\log.txt");
 	printf("==================================\n");
 }
 
@@ -189,8 +198,6 @@ int main(int argc, char **argv)
 #else
 		img = cv::imread(argv[c++], cv::IMREAD_GRAYSCALE);
 #endif
-
-		double _min, _max;
 
 		bool param_depthdata = (bool)std::atoi(argv[c++]);
 		if (param_depthdata)
@@ -223,6 +230,12 @@ int main(int argc, char **argv)
 		if (param_depthdata)
 			ScaleAndDisplay(depth, "source depth", true, 100);
 
+		/*cv::Mat image3(img_float.size(), img_float.type());
+		img_float.copyTo(image3);
+
+		cv::GaussianBlur(image3, image3, cv::Size(5, 5), 0.7, 0.7, cv::BORDER_REFLECT101);
+		ScaleAndDisplay(image3, "blurred image-3", true, 100);*/
+
 		cv::GaussianBlur(img_float, img_float, cv::Size(5, 5), 0.7, 0.7, cv::BORDER_CONSTANT);
 		ScaleAndDisplay(img_float, "blurred image", true, 100);
 
@@ -233,81 +246,106 @@ int main(int argc, char **argv)
 		laplacian = cv::Mat(img.size(), img.type());
 #endif
 
-		RunIteration(
-			img_float,
-			depth,
-			param_pixel_vicinity,
-			param_metrics_flag,
-			param_z_coord_weight,
-			param_k,
-			param_min_segment_size,
-			param_target_num_segments,
-			100,
-			"segmentation-1");
+		//// blurred image + original depth
+		//RunIteration(
+		//	img_float,
+		//	depth,
+		//	param_pixel_vicinity,
+		//	param_metrics_flag,
+		//	param_z_coord_weight,
+		//	param_k,
+		//	param_min_segment_size,
+		//	param_target_num_segments,
+		//	ImageGraph::ClusteringMode::REMOVE,
+		//	100,
+		//	"segmentation");
 
 		double min, max;
 
+		//if (param_depthdata)
+		//{
+		//	cv::GaussianBlur(depth, depth, cv::Size(5, 5), 0.7, 0.7, cv::BORDER_CONSTANT);
+		//	ScaleAndDisplay(depth, "blurred depth", true, 100);
+
+		//	/*cv::minMaxIdx(laplacian, &min, &max);
+		//	laplacian = (laplacian - (float)min) / ((float)max - (float)min);
+
+		//	int histogram[] = { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 };
+		//	for (int i = 0; i < laplacian.rows; i++)
+		//		for (int j = 0; j < laplacian.cols; j++)
+		//		{
+		//			if (laplacian.at<float>(i, j) == 1)
+		//				histogram[24]++;
+		//			else
+		//				histogram[(int)(laplacian.at<float>(i, j) * 255) / 10]++;
+		//		}
+		//	for (int t = 0; t < 25; t++)
+		//	{
+		//		printf("bin #%2i: %i\n", t + 1, histogram[t]);
+		//	}*/
+
+		//  // blurred image + blurred depth
+		//	RunIteration(
+		//		img_float,
+		//		depth,
+		//		param_pixel_vicinity,
+		//		param_metrics_flag,
+		//		param_z_coord_weight,
+		//		param_k,
+		//		param_min_segment_size,
+		//		param_target_num_segments,
+		//		ImageGraph::ClusteringMode::REMOVE,
+		//		100,
+		//		"segmentation-blur");
+		//}
+
 		if (param_depthdata)
 		{
-			cv::GaussianBlur(depth, depth, cv::Size(5, 5), 0.7, 0.7, cv::BORDER_CONSTANT);
-			ScaleAndDisplay(depth, "blurred depth", true, 100);
-
+			cv::Mat depth0(depth.size(), depth.type());
+			
+			/*cv::Laplacian(depth, laplacian, laplacian.depth(), 3, 1., 0., cv::BORDER_REFLECT101);
 			cv::minMaxIdx(laplacian, &min, &max);
 			laplacian = (laplacian - (float)min) / ((float)max - (float)min);
+			ScaleAndDisplay(laplacian, "laplacian", true, 100);*/
 
-			int histogram[] = { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 };
-			for (int i = 0; i < laplacian.rows; i++)
-				for (int j = 0; j < laplacian.cols; j++)
-				{
-					if (laplacian.at<float>(i, j) == 1)
-						histogram[24]++;
-					else
-						histogram[(int)(laplacian.at<float>(i, j) * 255) / 10]++;
-				}
-			for (int t = 0; t < 25; t++)
-			{
-				printf("bin #%2i: %i\n", t + 1, histogram[t]);
-			}
+			cv::Mat depth_blur(depth.size(), depth.type());
+			cv::GaussianBlur(depth, depth_blur, cv::Size(3, 3), 0.7, 0.7, cv::BORDER_CONSTANT);
+			ScaleAndDisplay(depth_blur, "blurred depth", true, 100);
+			
+			depth_blur.copyTo(depth0);
 
-			RunIteration(
-				img_float,
-				depth,
-				param_pixel_vicinity,
-				param_metrics_flag,
-				param_z_coord_weight,
-				param_k,
-				param_min_segment_size,
-				param_target_num_segments,
-				100,
-				"segmentation-2");
-		}
-
-		if (param_depthdata)
-		{
-			cv::Laplacian(depth, laplacian, laplacian.depth(), 3, 1., 0., cv::BORDER_REFLECT101);
-			cv::minMaxIdx(laplacian, &min, &max);
-			laplacian = (laplacian - (float)min) / ((float)max - (float)min);
-			cv::minMaxIdx(depth, &min, &max);
+			/*cv::minMaxIdx(depth, &min, &max);
 			depth = (depth - (float)min) / ((float)max - (float)min);
 			depth += laplacian;
 			cv::minMaxIdx(depth, &min, &max);
 			depth = (depth - (float)min) / ((float)max - (float)min);
 			ScaleAndDisplay(depth, "depth + laplacian", false, 100);
 
+			cv::minMaxIdx(depth_blur, &min, &max);
+			depth_blur = (depth_blur - (float)min) / ((float)max - (float)min);
+			depth_blur += laplacian;
+			cv::minMaxIdx(depth_blur, &min, &max);
+			depth_blur = (depth_blur - (float)min) / ((float)max - (float)min);
+			ScaleAndDisplay(depth_blur, "depth-blur + laplacian", false, 100);*/
+
+
+			// blurred image + blurred depth
 			RunIteration(
 				img_float,
-				depth,
+				depth0,
 				param_pixel_vicinity,
 				param_metrics_flag,
 				param_z_coord_weight,
 				param_k,
 				param_min_segment_size,
 				param_target_num_segments,
+				ImageGraph::ClusteringMode::REMOVE,
 				100,
-				"segmentation-3");
+				"segmentation-blur");
 		}
 		else
 		{
+			// given depth as image, combine the image and its laplacian
 			cv::Laplacian(img_float, laplacian, laplacian.depth(), 3, 1., 0., cv::BORDER_REFLECT101);
 			cv::minMaxIdx(laplacian, &min, &max);
 			laplacian = (laplacian - (float)min) / ((float)max - (float)min);
@@ -327,8 +365,9 @@ int main(int argc, char **argv)
 				param_k,
 				param_min_segment_size,
 				param_target_num_segments,
+				ImageGraph::ClusteringMode::REMOVE,
 				100,
-				"segmentation-2");
+				"segmentation-blur-laplace");
 		}
 
 		cv::waitKey();

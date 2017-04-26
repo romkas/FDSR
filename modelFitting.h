@@ -7,87 +7,63 @@
 
 namespace model
 {
-    enum Estimator
+	static std::random_device rd;
+	static std::minstd_rand rng(rd());
+	static std::vector<float> defaultransac;
+	static std::vector<float> defaultestimator;
+
+	enum SegmentModel
+	{
+		PLANE,
+		OTHER_MODEL
+	};
+	
+	enum Estimator
     {
         GRADESCENT,
         OTHER_METHOD
     };
 
-    inline bool FitToModel(cv::Vec3f *p, int param_thres)
-    {
-        // check either 
-        return true;
-    }
-
-    void UpdateModelParams(std::vector<float> &modelparams, std::vector<float> &bestmodelparams)
-    {
-
-    }
-
-    void GradientDescent(std::vector<cv::Vec3f *>::iterator st, std::vector<cv::Vec3f *>::iterator en, std::vector<float> &params, int x, int y)
-    {
-
-    }
-
-    float ComputePlane(
-        std::vector<cv::Vec3f *>::iterator start,
-        std::vector<cv::Vec3f *>::iterator end,
-        std::vector<float> &modelparams,
-        int estimator = Estimator::GRADESCENT)
+	enum Regularization
 	{
-        void(*estimfunc)(std::vector<cv::Vec3f *>::iterator, std::vector<cv::Vec3f *>::iterator, std::vector<float> &, int, int);
-        switch (estimator)
-        {
-        case GRADESCENT:
-            estimfunc = &GradientDescent;
-            
-            break;
-        default:
+		L1,
+		L2,
+		OTHER
+	};
 
-            break;
-        }
-        estimfunc(start, end, modelparams, 1, 2);
+	inline bool FitToModel(cv::Vec3f * p, std::vector<float>& modelparams, int param_thres);
 
-	}
+	inline void UpdateModelParams(std::vector<float>& modelparams, std::vector<float>& bestmodelparams);
+
+	void GradientDescent(
+		std::vector<cv::Vec3f*>::iterator st,
+		std::vector<cv::Vec3f*>::iterator en,
+		std::vector<float>& estimatorparams,
+		std::vector<float>& modelparams);
+
+	inline float ComputePlane(
+		std::vector<cv::Vec3f*>::iterator start,
+		std::vector<cv::Vec3f*>::iterator end,
+		std::vector<float>& modelparams,
+		std::vector<float>& estimatorparams,
+		int estimator = Estimator::GRADESCENT);
 
 	float RANSAC(
-        std::vector<cv::Vec3f *> &pointlist,
-        std::vector<float> &bestmodelparams,
-        int param_n,
-        int param_k,
-        float param_thres,
-        int param_d)
-	{
-        std::vector<float> paramstemp;
-        std::vector<cv::Vec3f *> also_inliers;
-        
-        std::mt19937_64 f();
+		std::vector<cv::Vec3f*>& pointlist,
+		std::vector<float>& bestmodelparams,
+		int param_n,
+		int param_k,
+		float param_thres,
+		int param_d,
+		std::vector<float>& estimatorparams,
+		int estimatortype = Estimator::GRADESCENT,
+		int modeltype = SegmentModel::PLANE);
+	
+	inline void set_default_ransac(int mode, std::vector<float> p);
+	
+	inline void set_default_estimator(int mode, std::vector<float> p);
+	
+	inline std::vector<float>& ransac_defaults();
 
-        float error = -1.f, besterror = (float)UINT64_MAX;
-        
-		for (int t = 0; t < param_k; t++)
-		{
-            std::random_shuffle(pointlist.begin(), pointlist.end(), f);
-            
-            ComputePlane(pointlist.begin(), pointlist.begin() + param_n, paramstemp);
-
-            for (auto iter = pointlist.begin() + param_n; iter != pointlist.end(); iter++)
-            {
-                if (FitToModel(*iter, param_thres))
-                    also_inliers.push_back(*iter);
-            }
-
-            if (also_inliers.size() >= param_d)
-            {
-                also_inliers.insert(also_inliers.end(), pointlist.begin(), pointlist.begin() + param_n);
-                error = ComputePlane(also_inliers.begin(), also_inliers.end(), paramstemp);
-                if (error < besterror)
-                {
-                    besterror = error;
-                    UpdateModelParams(paramstemp, bestmodelparams);
-                }
-            }
-		}
-        return error;
-	}
+	inline std::vector<float>& estimator_defaults();
 };

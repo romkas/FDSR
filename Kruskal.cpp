@@ -313,40 +313,102 @@ double ImageGraph::calc_weight_dist(Pixel *n1, Pixel *n2)
 //	printf("TIME (Labeling segments                   ) (ms): %8.2f\n", (double)t * 1000. / CLOCKS_PER_SEC);
 //}
 
-void ImageGraph::Clustering(int min_segment_size, int total_num_segments, int *pixels_under_thres, int *seg_under_thres, int *num_mergers)
+int ImageGraph::model_and_cluster(int target_num_segments, std::vector<float>& params)
+{
+	int num_mergers = 0;
+	std::vector<float> estimatorparams;
+	
+	auto iter = params.begin();
+	
+	int ransac_n = *iter++;
+	int ransac_k = *iter++;
+	float ransac_thres = *iter++;
+	int ransac_d = *iter++;
+	int model_type = *iter++;
+	int estimatormode;
+	if (model_type == model::SegmentModel::PLANE)
+	{ // select segment model
+		estimatormode = *iter++;
+		estimatorparams.assign(iter, params.end());
+		if (estimatormode == model::Estimator::GRADESCENT)
+		{ // select algorithm for fitting the model to depth map/image pixels
+			
+		}
+		else if (estimatormode == model::Estimator::OTHER_METHOD)
+		{
+
+		}
+		else
+		{
+
+		}
+	}
+	else if (model_type == model::SegmentModel::OTHER_MODEL)
+	{ // parse additional parameters
+
+	}
+	else
+	{ // exception or sth else
+
+	}
+
+	// similarity
+
+	// clustering
+	//model::InitRANSAC();
+	//model::RANSAC()
+	return num_mergers;
+}
+
+void ImageGraph::Clustering(
+	int min_segment_size,
+	int target_num_segments,
+	int mode,
+	std::vector<float> &clustering_params,
+	int *pixels_under_thres,
+	int *seg_under_thres,
+	int *num_mergers)
 {
 	*pixels_under_thres = 0;
 	*seg_under_thres = 0;
 	*num_mergers = 0;
-	clock_t t = clock();
-	// remove small segments
-	auto iter = partition.begin();
-	while (iter != partition.end()/* && (*iter)->numelements < min_segment_size*/)
-    //for (auto iter = partition.begin(); iter != partition.end(); iter++)
-    {
-		if ((*iter)->numelements < min_segment_size)
-		{
-			*seg_under_thres++;
-			*pixels_under_thres += (*iter)->numelements;
-			iter = partition.erase(iter);
-		}
-        else
-            iter++;
-		//iter++;
-	}
-	//partition.erase(partition.begin(), iter);
-	t = clock() - t;
-	printf("TIME (Removing small segments             ) (ms): %8.2f\n", (double)t * 1000. / CLOCKS_PER_SEC);
+	
+	clock_t t;
 
-	t = clock();
-	// merge segments hierarchically
-	if (total_num_segments > 0)
+	if (mode & ClusteringMode::REMOVE)
 	{
-		// do some clustering
+		t = clock();
+		// remove small segments
+		auto iter = partition.begin();
+		while (iter != partition.end()/* && (*iter)->numelements < min_segment_size*/)
+			//for (auto iter = partition.begin(); iter != partition.end(); iter++)
+		{
+			if ((*iter)->numelements < min_segment_size)
+			{
+				(*seg_under_thres)++;
+				*pixels_under_thres += (*iter)->numelements;
+				iter = partition.erase(iter);
+			}
+			else
+				iter++;
+			//iter++;
+		}
+		//partition.erase(partition.begin(), iter);
+		t = clock() - t;
+		printf("TIME (Removing small segments             ) (ms): %8.2f\n", (double)t * 1000. / CLOCKS_PER_SEC);
 	}
-	t = clock() - t;
-	printf("TIME (Merging segments                    ) (ms): %8.2f\n", (double)t * 1000. / CLOCKS_PER_SEC);
-
+	if (mode == ClusteringMode::MERGE)
+	{
+		t = clock();
+		// merge segments hierarchically
+		if (target_num_segments > 0)
+		{
+			*num_mergers = model_and_cluster(target_num_segments, clustering_params);
+		}
+		t = clock() - t;
+		printf("TIME (Merging segments                    ) (ms): %8.2f\n", (double)t * 1000. / CLOCKS_PER_SEC);
+	}
+	
 }
 
 void ImageGraph::PlotSegmentation(int waittime, const char *windowname)
@@ -357,6 +419,9 @@ void ImageGraph::PlotSegmentation(int waittime, const char *windowname)
 	for (auto iter = partition.begin(); iter != partition.end(); iter++)
 	{
 		(*iter)->color = cv::Vec3b(color_rng.uniform(a, b), color_rng.uniform(a, b), color_rng.uniform(a, b));
+
+		(*iter)->mdepth /= (*iter)->numelements;
+
 		for (auto iterlist = (*iter)->segment.begin(); iterlist != (*iter)->segment.end(); iterlist++)
 		{
 			segment_labels.at<int>((*iterlist)->horiz_coords) = (*iter)->label;
@@ -369,9 +434,9 @@ void ImageGraph::PlotSegmentation(int waittime, const char *windowname)
 	cv::waitKey(waittime);
 }
 
-void ImageGraph::PrintSegmentationInfo() const
+void ImageGraph::PrintSegmentationInfo(const char *fname) const
 {
-	FILE *f = fopen("F:\\opticalflow\\log.txt", "w");
+	FILE *f = fopen(fname, "w");
 	for (auto iter = partition.begin(); iter != partition.end(); iter++)
 	{
 		fprintf(f, "segment: %7i, size: %7i\n", (*iter)->label, (*iter)->numelements);

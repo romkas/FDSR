@@ -54,6 +54,9 @@ struct Segment
     std::pair<Pixel *, Segment *> *disjoint_parent;
     int disjoint_rank;
 
+	float mdepth;
+	cv::Vec3f nvector;
+
 	Segment() {}
 
 	Segment(int numel, int lab) {}
@@ -62,10 +65,10 @@ struct Segment
 
 #if USE_COLOR == 1
 	Segment::Segment(int numel, int lab, double w, cv::Vec3f &pixval, int x, int y, float z, float z_sc) :
-        numelements(numel), label(lab), max_weight(w), disjoint_rank(0)
+        numelements(numel), label(lab), max_weight(w), disjoint_rank(0), mdepth(z)
 #else
 	Segment::Segment(int numel, int lab, double w, float pixval, int x, int y, float z, float z_sc) :
-        numelements(numel), label(lab), max_weight(w), disjoint_rank(0)
+        numelements(numel), label(lab), max_weight(w), disjoint_rank(0), mdepth(z)
 #endif
 	{
 		Pixel *p = new Pixel(pixval, x, y, z, z_sc);

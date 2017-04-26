@@ -1,5 +1,6 @@
 #pragma once
 #include "disjointSetClass.h"
+#include "modelFitting.h"
 
 #include <opencv2\core.hpp>
 #include <opencv2\highgui.hpp>
@@ -68,6 +69,9 @@ class ImageGraph
             pa->max_weight = w;
             pa->numelements += pb->numelements;
             pa->segment.splice(pa->segment.end(), pb->segment);
+
+			pa->mdepth += pb->mdepth;
+
             partition.erase(pb);
         }
         else
@@ -78,6 +82,9 @@ class ImageGraph
             pb->max_weight = w;
             pb->numelements += pa->numelements;
             pb->segment.splice(pb->segment.end(), pa->segment);
+
+			pb->mdepth += pa->mdepth;
+
             partition.erase(pa);
         }
     }
@@ -120,6 +127,8 @@ class ImageGraph
 	}
 
 	//void calc_similatiry();
+
+	int model_and_cluster(int, std::vector<float>&);
 public:
 	ImageGraph() {}
 	// constructs a graph with pixels as vertices and edge weights as the color difference
@@ -131,7 +140,21 @@ public:
 
 	int SegmentationKruskal(double k);
 	//void MakeLabels();
-	void Clustering(int min_segment_size, int total_num_segments, int *pixels_under_thres, int *seg_under_thres, int *num_mergers);
-	void PlotSegmentation(int, const char *);
-	void PrintSegmentationInfo() const;
+	void Clustering(
+		int min_segment_size,
+		int target_num_segments,
+		int mode,
+		std::vector<float>& clustering_params,
+		int *pixels_under_thres,
+		int *seg_under_thres,
+		int *num_mergers);
+	void PlotSegmentation(int, const char*);
+	void PrintSegmentationInfo(const char*) const;
+
+	enum ClusteringMode
+	{
+		REMOVE = 1,
+		MERGE = 2,
+		BOTH = 3
+	};
 };
