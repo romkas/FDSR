@@ -162,3 +162,35 @@ std::vector<float>& model::estimator_defaults()
 {
 	return defaultestimator;
 }
+
+void model::InitRANSAC()
+{
+    rng.seed(rd());
+}
+
+model::Plane::Plane()
+{
+}
+
+model::Plane::~Plane()
+{
+}
+
+float model::Plane::Train(std::vector<cv::Vec3f*>&)
+{
+    return 0.0f;
+}
+
+float model::Plane::Fit(cv::Vec3f *) const
+{
+    return 0.0f;
+}
+
+void model::Plane::setData(std::vector<cv::Vec3f*>&)
+{
+}
+
+std::vector<cv::Vec3f*>& model::Plane::getData()
+{
+    // TODO: insert return statement here
+}

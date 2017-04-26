@@ -8,9 +8,25 @@
 namespace model
 {
 	static std::random_device rd;
-	static std::minstd_rand rng(rd());
+	static std::minstd_rand rng;
 	static std::vector<float> defaultransac;
 	static std::vector<float> defaultestimator;
+
+    class Plane
+    {
+    private:
+        std::vector<cv::Vec3f*> data;
+        cv::Vec3f vnormal;
+        cv::Vec4f coords;
+    public:
+        Plane();
+        ~Plane();
+        float Train(std::vector<cv::Vec3f*> &);
+        float Fit(cv::Vec3f *) const;
+        void setData(std::vector<cv::Vec3f*> &);
+        std::vector<cv::Vec3f*>& getData();
+
+    };
 
 	enum SegmentModel
 	{
@@ -66,4 +82,6 @@ namespace model
 	inline std::vector<float>& ransac_defaults();
 
 	inline std::vector<float>& estimator_defaults();
+
+    inline void InitRANSAC();
 };
