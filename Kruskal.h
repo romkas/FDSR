@@ -1,6 +1,8 @@
 #pragma once
 #include "disjointSetClass.h"
 #include "modelFitting.h"
+#include "ransac.h"
+#include "compute.h"
 
 #include <opencv2\core.hpp>
 #include <opencv2\highgui.hpp>
@@ -127,6 +129,8 @@ class ImageGraph
 	}
 
 	//void calc_similatiry();
+
+	cv::Vec3f* _get_pixel_location(const Pixel *p);
 
 	int model_and_cluster(int, std::vector<float>&);
 public:

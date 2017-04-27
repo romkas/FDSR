@@ -313,28 +313,41 @@ double ImageGraph::calc_weight_dist(Pixel *n1, Pixel *n2)
 //	printf("TIME (Labeling segments                   ) (ms): %8.2f\n", (double)t * 1000. / CLOCKS_PER_SEC);
 //}
 
+cv::Vec3f* ImageGraph::_get_pixel_location(const Pixel *p)
+{
+	return new cv::Vec3f(p->horiz_coords[0], p->horiz_coords[1], p->depth);
+}
+
 int ImageGraph::model_and_cluster(int target_num_segments, std::vector<float>& params)
 {
 	int num_mergers = 0;
+	float total_error = 0.0f;
+
 	std::vector<float> estimatorparams;
 	
+	model::BaseModel *m;
+	model::Estimator *e;
+
 	auto iter = params.begin();
 	
+	clock_t t;
+
 	int ransac_n = *iter++;
 	int ransac_k = *iter++;
 	float ransac_thres = *iter++;
 	int ransac_d = *iter++;
 	int model_type = *iter++;
 	int estimatormode;
-	if (model_type == model::SegmentModel::PLANE)
+	if (model_type == model::PLANE)
 	{ // select segment model
 		estimatormode = *iter++;
 		estimatorparams.assign(iter, params.end());
-		if (estimatormode == model::Estimator::GRADESCENT)
+		m = new model::Plane;
+		if (estimatormode == model::GRADESCENT)
 		{ // select algorithm for fitting the model to depth map/image pixels
-			
+			e = new model::GradientDescent(estimatorparams);
 		}
-		else if (estimatormode == model::Estimator::OTHER_METHOD)
+		else if (estimatormode == model::OTHER_METHOD)
 		{
 
 		}
@@ -343,7 +356,7 @@ int ImageGraph::model_and_cluster(int target_num_segments, std::vector<float>& p
 
 		}
 	}
-	else if (model_type == model::SegmentModel::OTHER_MODEL)
+	else if (model_type == model::OTHER_MODEL)
 	{ // parse additional parameters
 
 	}
@@ -352,11 +365,30 @@ int ImageGraph::model_and_cluster(int target_num_segments, std::vector<float>& p
 
 	}
 
+	t = clock();
+	{ // calculate model parameters for each segment
+		std::vector<cv::Vec3f*> sample;
+		model::InitRANSAC();
+		for (auto it = partition.begin(); it != partition.end(); it++)
+		{
+			std::transform((*it)->segment.begin(), (*it)->segment.end(), sample.begin(), _get_pixel_location);
+			//m->setData(sample);
+			total_error += RANSAC(sample,
+				static_cast<model::Plane*>(m),
+				static_cast<model::GradientDescent*>(e),
+				ransac_n, ransac_k, ransac_thres, ransac_d);
+			sample.clear();
+		}
+	}
+	t = clock() - t;
+	printf("TIME (RANSAC. Calculating models          ) (ms): %8.2f\n", (double)t * 1000. / CLOCKS_PER_SEC);
+	
 	// similarity
 
+
 	// clustering
-	//model::InitRANSAC();
-	//model::RANSAC()
+	
+
 	return num_mergers;
 }
 

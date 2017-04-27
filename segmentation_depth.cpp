@@ -7,7 +7,6 @@
 //#include <fstream>
 #include <cstring>
 
-using namespace std;
 
 void print_help()
 {
@@ -299,6 +298,17 @@ int main(int argc, char **argv)
 		//		"segmentation-blur");
 		//}
 
+		int ransac_n = 6;
+		int ransac_d = 1;
+		float ransac_thres = 0.1f;
+		float ransac_k = cv::log(1 - 0.7f) / cv::log(1 - cv::pow(0.8f, ransac_n));
+		int model_type = model::ModelType::PLANE;
+		int estimator_type = model::EstimatorType::GRADESCENT;
+		int metrics = model::RegularizationType::L2;
+
+		std::vector<float> cluster_params{ (float)ransac_n, ransac_k, ransac_thres, (float)ransac_d,
+			(float)model_type, (float)estimator_type, 0.01f, (float)ransac_n, (float)metrics };
+
 		if (param_depthdata)
 		{
 			cv::Mat depth0(depth.size(), depth.type());
@@ -339,7 +349,8 @@ int main(int argc, char **argv)
 				param_k,
 				param_min_segment_size,
 				param_target_num_segments,
-				ImageGraph::ClusteringMode::REMOVE,
+				ImageGraph::REMOVE,
+				cluster_params,
 				100,
 				"segmentation-blur");
 		}
@@ -365,7 +376,8 @@ int main(int argc, char **argv)
 				param_k,
 				param_min_segment_size,
 				param_target_num_segments,
-				ImageGraph::ClusteringMode::REMOVE,
+				ImageGraph::REMOVE,
+				cluster_params,
 				100,
 				"segmentation-blur-laplace");
 		}
