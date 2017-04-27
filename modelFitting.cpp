@@ -296,6 +296,11 @@ model::GradientDescent::GradientDescent(std::vector<float>& p)
 	setParams(p);
 }
 
+model::GradientDescent::GradientDescent(const std::vector<float>& p)
+{
+    setParams(p);
+}
+
 model::GradientDescent::~GradientDescent()
 {
 }
@@ -305,6 +310,13 @@ void model::GradientDescent::setParams(std::vector<float>& p)
 	lam = p[0];
 	n = p[1];
 	metrics = p[2];
+}
+
+void model::GradientDescent::setParams(const std::vector<float>& p)
+{
+    lam = p[0];
+    n = p[1];
+    metrics = p[2];
 }
 
 void model::GradientDescent::setRegularizParam(float lambda)

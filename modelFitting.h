@@ -1,8 +1,12 @@
 #pragma once
-#include "disjointSetClass.h"
-#include "Kruskal.h"
-#include <algorithm>
+//#include "disjointSetClass.h"
+//#include "Kruskal.h"
+//#include <algorithm>
+//#include <random>
+
+#include <opencv2\core.hpp>
 #include <random>
+#include <vector>
 
 
 namespace model
@@ -35,7 +39,7 @@ namespace model
 	class Estimator
 	{
 	public:
-		virtual ~Estimator() = 0;
+        virtual ~Estimator() {}
 		// virtual void Apply() = 0;
 	};
 
@@ -48,8 +52,10 @@ namespace model
 	public:
 		GradientDescent();
 		GradientDescent(std::vector<float>& p);
+        GradientDescent(const std::vector<float>& p);
 		~GradientDescent();
 		void setParams(std::vector<float>& p);
+        void setParams(const std::vector<float>& p);
 		void setRegularizParam(float lambda);
 		float getRegularizParam() const;
 		void setSampleSize(int n);
@@ -65,7 +71,7 @@ namespace model
 		//std::vector<cv::Vec3f*> data;
 		//int datasize;
 	public:
-		virtual ~BaseModel() = 0;
+        virtual ~BaseModel() {}
 		virtual float Fit(cv::Vec3f *p) const = 0;
 		virtual bool checkFit(cv::Vec3f *p, float thres) const = 0;
 		/*void setData(std::vector<cv::Vec3f*> &data)
@@ -115,7 +121,7 @@ namespace model
 		int getSubsampleStart() const;
 		int getSubsampleEnd() const;*/
 		
-		typedef struct
+		/*typedef struct
 		{
 			cv::Vec4f coords;
 			float _fit(const cv::Vec3f * p)
@@ -124,7 +130,7 @@ namespace model
 					p->operator[](2) * coords[2] + coords[3]);
 			}
 		} fit_function;
-		fit_function ff;
+		fit_function ff;*/
     };
 
 	//inline bool FitToModel(cv::Vec3f * p, std::vector<float>& modelparams, int param_thres);
@@ -167,5 +173,5 @@ namespace model
 
 	//inline std::vector<float>& estimator_defaults();
 
-    inline void InitRANSAC();
+    void InitRANSAC();
 }

@@ -1,11 +1,13 @@
 #pragma once
+#include "modelFitting.h"
+#include <opencv2\core.hpp>
 #include <vector>
 #include <list>
 #include <utility>
+#include <memory>
 #include <ctime>
 #include <cstdio>
 #include <ctype.h>
-#include <opencv2\core.hpp>
 
 
 struct Pixel;
@@ -55,8 +57,9 @@ struct Segment
     int disjoint_rank;
 
 	float mdepth;
-	cv::Vec3f nvector;
-
+    //std::shared_ptr<model::BaseModel> segmodel;
+    model::Plane * m;
+    
 	Segment() {}
 
 	Segment(int numel, int lab) {}

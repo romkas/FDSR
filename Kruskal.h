@@ -1,18 +1,7 @@
 #pragma once
 #include "disjointSetClass.h"
-#include "modelFitting.h"
-#include "ransac.h"
-#include "compute.h"
-
-#include <opencv2\core.hpp>
-#include <opencv2\highgui.hpp>
-#include <opencv2\imgproc.hpp>
-
 #include <set>
-#include <algorithm>
 #include <utility>
-#include <cmath>
-#include <ctime>
 
 
 class ImageGraph
@@ -132,7 +121,7 @@ class ImageGraph
 
 	cv::Vec3f* _get_pixel_location(const Pixel *p);
 
-	int model_and_cluster(int, std::vector<float>&);
+	int model_and_cluster(int, const std::vector<float>&);
 public:
 	ImageGraph() {}
 	// constructs a graph with pixels as vertices and edge weights as the color difference
@@ -148,7 +137,7 @@ public:
 		int min_segment_size,
 		int target_num_segments,
 		int mode,
-		std::vector<float>& clustering_params,
+		const std::vector<float>& clustering_params,
 		int *pixels_under_thres,
 		int *seg_under_thres,
 		int *num_mergers);

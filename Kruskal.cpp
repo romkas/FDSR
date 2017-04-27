@@ -1,4 +1,12 @@
 #include "Kruskal.h"
+#include "modelFitting.h"
+#include "ransac.h"
+#include "compute.h"
+#include <opencv2\highgui.hpp>
+#include <algorithm>
+#include <memory>
+#include <cmath>
+#include <ctime>
 
 
 ImageGraph::ImageGraph(cv::Mat &image, cv::Mat &depth, int v, int flag_metrics, float zcoord_weight)
@@ -318,15 +326,16 @@ cv::Vec3f* ImageGraph::_get_pixel_location(const Pixel *p)
 	return new cv::Vec3f(p->horiz_coords[0], p->horiz_coords[1], p->depth);
 }
 
-int ImageGraph::model_and_cluster(int target_num_segments, std::vector<float>& params)
+int ImageGraph::model_and_cluster(int target_num_segments, const std::vector<float>& params)
 {
 	int num_mergers = 0;
 	float total_error = 0.0f;
 
 	std::vector<float> estimatorparams;
 	
-	model::BaseModel *m;
-	model::Estimator *e;
+	//model::BaseModel *m;
+    //std::shared_ptr<model::BaseModel> m;
+    //model::Estimator *e;
 
 	auto iter = params.begin();
 	
@@ -342,10 +351,42 @@ int ImageGraph::model_and_cluster(int target_num_segments, std::vector<float>& p
 	{ // select segment model
 		estimatormode = *iter++;
 		estimatorparams.assign(iter, params.end());
-		m = new model::Plane;
-		if (estimatormode == model::GRADESCENT)
+		//m = new model::Plane;
+
+        //m = std::make_shared<model::Plane>();
+
+        model::Plane * m = new model::Plane;
+
+        if (estimatormode == model::GRADESCENT)
 		{ // select algorithm for fitting the model to depth map/image pixels
-			e = new model::GradientDescent(estimatorparams);
+			//e = new model::GradientDescent(estimatorparams);
+
+            model::GradientDescent * e = new model::GradientDescent;
+
+            t = clock();
+            { // calculate model parameters for each segment
+                std::vector<cv::Vec3f*> sample;
+                model::InitRANSAC();
+                for (auto it = partition.begin(); it != partition.end(); it++)
+                {
+                    //std::transform((*it)->segment.begin(), (*it)->segment.end(), sample.begin(), _get_pixel_location);
+                    for (auto it_list = (*it)->segment.begin(); it_list != (*it)->segment.end(); it_list++)
+                        sample.push_back(_get_pixel_location(*it_list));
+
+                    /*total_error += RANSAC(sample,
+                        static_cast<model::Plane*>(m),
+                        static_cast<model::GradientDescent*>(e),
+                        ransac_n, ransac_k, ransac_thres, ransac_d);*/
+                    total_error += RANSAC(sample, m, e, ransac_n, ransac_k, ransac_thres, ransac_d);
+
+                    for (auto itv = sample.begin(); itv != sample.end(); itv++)
+                        delete *itv;
+
+                    sample.clear();
+                }
+            }
+            t = clock() - t;
+            printf("TIME (RANSAC. Calculating models          ) (ms): %8.2f\n", (double)t * 1000. / CLOCKS_PER_SEC);
 		}
 		else if (estimatormode == model::OTHER_METHOD)
 		{
@@ -365,23 +406,29 @@ int ImageGraph::model_and_cluster(int target_num_segments, std::vector<float>& p
 
 	}
 
-	t = clock();
-	{ // calculate model parameters for each segment
-		std::vector<cv::Vec3f*> sample;
-		model::InitRANSAC();
-		for (auto it = partition.begin(); it != partition.end(); it++)
-		{
-			std::transform((*it)->segment.begin(), (*it)->segment.end(), sample.begin(), _get_pixel_location);
-			//m->setData(sample);
-			total_error += RANSAC(sample,
-				static_cast<model::Plane*>(m),
-				static_cast<model::GradientDescent*>(e),
-				ransac_n, ransac_k, ransac_thres, ransac_d);
-			sample.clear();
-		}
-	}
-	t = clock() - t;
-	printf("TIME (RANSAC. Calculating models          ) (ms): %8.2f\n", (double)t * 1000. / CLOCKS_PER_SEC);
+	//t = clock();
+	//{ // calculate model parameters for each segment
+	//	std::vector<cv::Vec3f*> sample;
+	//	model::InitRANSAC();
+ //       for (auto it = partition.begin(); it != partition.end(); it++)
+ //       {
+ //           //std::transform((*it)->segment.begin(), (*it)->segment.end(), sample.begin(), _get_pixel_location);
+ //           for (auto it_list = (*it)->segment.begin(); it_list != (*it)->segment.end(); it_list++)
+ //               sample.push_back(_get_pixel_location(*it_list));
+
+ //           total_error += RANSAC(sample,
+ //               static_cast<model::Plane*>(m),
+ //               static_cast<model::GradientDescent*>(e),
+ //               ransac_n, ransac_k, ransac_thres, ransac_d);
+
+ //           for (auto itv = sample.begin(); itv != sample.end(); itv++)
+ //               delete *itv;
+
+ //           sample.clear();
+ //       }
+	//}
+	//t = clock() - t;
+	//printf("TIME (RANSAC. Calculating models          ) (ms): %8.2f\n", (double)t * 1000. / CLOCKS_PER_SEC);
 	
 	// similarity
 
@@ -396,7 +443,7 @@ void ImageGraph::Clustering(
 	int min_segment_size,
 	int target_num_segments,
 	int mode,
-	std::vector<float> &clustering_params,
+	const std::vector<float> &clustering_params,
 	int *pixels_under_thres,
 	int *seg_under_thres,
 	int *num_mergers)
@@ -429,7 +476,7 @@ void ImageGraph::Clustering(
 		t = clock() - t;
 		printf("TIME (Removing small segments             ) (ms): %8.2f\n", (double)t * 1000. / CLOCKS_PER_SEC);
 	}
-	if (mode == ClusteringMode::MERGE)
+	if (mode & ClusteringMode::MERGE)
 	{
 		t = clock();
 		// merge segments hierarchically

@@ -1,10 +1,11 @@
-#include "disjointSetClass.h"
 #include "Kruskal.h"
-
-
-
-#include <iostream>
-//#include <fstream>
+#include "modelFitting.h"
+#include <opencv2\core.hpp>
+#include <opencv2\highgui.hpp>
+#include <opencv2\imgproc.hpp>
+#include <vector>
+#include <ctime>
+#include <cstdio>
 #include <cstring>
 
 
@@ -153,9 +154,10 @@ void RunIteration(
 	int param_min_segment_size,
 	int param_target_num_segments,
 	int clustering_mode,
-	std::vector<float>& clustering_params,
+	const std::vector<float>& clustering_params,
 	int waitkey,
-	const char *windowname)
+	const char *windowname,
+    const char *logfile)
 {
 	int n_segments;
 	int pixels_under_thres, seg_under_thres, num_mergers;
@@ -171,7 +173,7 @@ void RunIteration(
 	G.PlotSegmentation(waitkey, windowname);
 	printf("Found segments:           %7i\n", n_segments);
 	printf("Pixels under threshold:   %7i\nSegments under threshold: %7i\nNumber of mergers:        %7i\n", pixels_under_thres, seg_under_thres, num_mergers);
-	G.PrintSegmentationInfo("F:\\opticalflow\\log.txt");
+	G.PrintSegmentationInfo(logfile);
 	printf("==================================\n");
 }
 
@@ -185,6 +187,8 @@ int main(int argc, char **argv)
 		double param_k = std::atof(argv[c++]);
 		int param_min_segment_size = std::atoi(argv[c++]);
 		int param_target_num_segments = std::atoi(argv[c++]);
+        char logfilename[FILENAME_MAX];
+        std::strcpy(logfilename, argv[c++]);
 		//int param_segment_size_vis = std::atoi(argv[c++]);
 		//bool param_color = (bool)std::atoi(argv[c++]);
 		double param_z_coord_weight;
@@ -352,7 +356,8 @@ int main(int argc, char **argv)
 				ImageGraph::REMOVE,
 				cluster_params,
 				100,
-				"segmentation-blur");
+				"segmentation-blur",
+                logfilename);
 		}
 		else
 		{
@@ -379,7 +384,8 @@ int main(int argc, char **argv)
 				ImageGraph::REMOVE,
 				cluster_params,
 				100,
-				"segmentation-blur-laplace");
+				"segmentation-blur-laplace",
+                logfilename);
 		}
 
 		cv::waitKey();
