@@ -355,13 +355,14 @@ int ImageGraph::model_and_cluster(int target_num_segments, const std::vector<flo
 
         //m = std::make_shared<model::Plane>();
 
-        model::Plane * m = new model::Plane;
+        //model::Plane * m = new model::Plane;
 
         if (estimatormode == model::GRADESCENT)
 		{ // select algorithm for fitting the model to depth map/image pixels
 			//e = new model::GradientDescent(estimatorparams);
 
             model::GradientDescent * e = new model::GradientDescent;
+            e->setParams(estimatorparams);
 
             t = clock();
             { // calculate model parameters for each segment
@@ -377,7 +378,11 @@ int ImageGraph::model_and_cluster(int target_num_segments, const std::vector<flo
                         static_cast<model::Plane*>(m),
                         static_cast<model::GradientDescent*>(e),
                         ransac_n, ransac_k, ransac_thres, ransac_d);*/
-                    total_error += RANSAC(sample, m, e, ransac_n, ransac_k, ransac_thres, ransac_d);
+                    //total_error += RANSAC(sample, m, e, ransac_n, ransac_k, ransac_thres, ransac_d);
+
+                    (*it)->m = new model::Plane;
+
+                    total_error += RANSAC(sample, (*it)->m, e, ransac_n, ransac_k, ransac_thres, ransac_d);
 
                     for (auto itv = sample.begin(); itv != sample.end(); itv++)
                         delete *itv;

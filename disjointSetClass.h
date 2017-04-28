@@ -83,5 +83,6 @@ struct Segment
 	{
 		for (auto iter = segment.begin(); iter != segment.end(); iter++)
 			delete (*iter);
+        delete m;
 	}
 };
