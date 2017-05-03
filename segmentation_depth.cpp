@@ -149,6 +149,7 @@ void RunIteration(
 	cv::Mat &depth,
 	int param_pixel_vicinity,
 	int param_metrics_flag,
+	double param_xy_coord_weight,
 	double param_z_coord_weight,
 	double param_k,
 	int param_min_segment_size,
@@ -162,9 +163,15 @@ void RunIteration(
 	int n_segments;
 	int pixels_under_thres, seg_under_thres, num_mergers;
 	printf("==================================\n");
-	ImageGraph G = ImageGraph(img, depth, param_pixel_vicinity, param_metrics_flag, param_z_coord_weight);
+	ImageGraph G = ImageGraph(
+		img,
+		depth,
+		param_pixel_vicinity,
+		param_metrics_flag,
+		param_xy_coord_weight,
+		param_z_coord_weight);
 	n_segments = G.SegmentationKruskal(param_k);
-	G.Clustering(
+	G.Refine(
 		param_min_segment_size,
 		param_target_num_segments,
 		clustering_mode,
@@ -179,11 +186,12 @@ void RunIteration(
 
 int main(int argc, char **argv)
 {
-	if (argc >= 8)
+	if (argc >= 9)
 	{
 		int c = 1;
 		int param_pixel_vicinity = std::atoi(argv[c++]);
 		int param_metrics_flag = std::atoi(argv[c++]);
+		double param_xy_coord_weight = std::atof(argv[c++]);
 		double param_k = std::atof(argv[c++]);
 		int param_min_segment_size = std::atoi(argv[c++]);
 		int param_target_num_segments = std::atoi(argv[c++]);
@@ -305,12 +313,13 @@ int main(int argc, char **argv)
 		int ransac_n = 6;
 		int ransac_d = 1;
 		float ransac_thres = 0.1f;
-		float ransac_k = cv::log(1 - 0.7f) / cv::log(1 - cv::pow(0.8f, ransac_n));
+		int ransac_k = (int)(cv::log(1 - 0.7f) / cv::log(1 - cv::pow(0.8f, ransac_n)) +
+			cv::sqrt(1 - cv::pow(0.8f, ransac_n)) / cv::pow(0.8f, ransac_n) + 1);
 		int model_type = model::ModelType::PLANE;
 		int estimator_type = model::EstimatorType::GRADESCENT;
 		int metrics = model::RegularizationType::L2;
 
-		std::vector<float> cluster_params{ (float)ransac_n, ransac_k, ransac_thres, (float)ransac_d,
+		std::vector<float> cluster_params{ (float)ransac_n, (float)ransac_k, ransac_thres, (float)ransac_d,
 			(float)model_type, (float)estimator_type, 0.01f, (float)ransac_n, (float)metrics };
 
 		if (param_depthdata)
@@ -349,6 +358,7 @@ int main(int argc, char **argv)
 				depth0,
 				param_pixel_vicinity,
 				param_metrics_flag,
+				param_xy_coord_weight,
 				param_z_coord_weight,
 				param_k,
 				param_min_segment_size,
@@ -377,6 +387,7 @@ int main(int argc, char **argv)
 				depth,
 				param_pixel_vicinity,
 				param_metrics_flag,
+				param_xy_coord_weight,
 				param_z_coord_weight,
 				param_k,
 				param_min_segment_size,

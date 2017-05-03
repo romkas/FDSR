@@ -1,139 +1,85 @@
 #pragma once
 #include "disjointSetClass.h"
+#include "datastruct.h"
 #include <set>
 #include <utility>
 
 
 class ImageGraph
-{
-#if EDGES_VECTOR == 0
+{	
 	typedef struct
 	{
-		bool operator()(const Edge *e1, const Edge *e2) const
-		{
-			return e1->weight < e2->weight;
-		}
-	} compare_edges;
-#endif
+		dtypes::Edge e;
+		disjointset::DisjointSetNode<dtypes::Segment> *x, *y;
+		//cv::Vec2i coordv1, coordv2;
+	} EdgeWrapper;
 	
 	typedef struct
 	{
-		bool operator()(const Segment *s1, const Segment *s2) const
+		bool operator()(const dtypes::Segment *s1, const dtypes::Segment *s2) const
 		{
-			//return s1->numelements != s2->numelements ? s1->numelements < s2->numelements : s1->label < s2->label;
-            return s1->label < s2->label;
+			return s1->numelements != s2->numelements ? s1->numelements < s2->numelements : s1->label < s2->label;
+            //return s1->label < s2->label;
 		}
 	} compare_segments;
 
-#if EDGES_VECTOR == 1
-	std::vector<Edge *> edges;
-#else
-	std::set<Edge *, compare_edges> edges;
-#endif
-	std::vector<std::pair<Pixel*, Segment *> *> pixels;
-	std::set<Segment *, compare_segments> partition;
+	//std::vector<Edge *> edges;
+	//std::vector<std::pair<Pixel*, Segment *> *> pixels;
+
 	
-	float z_scale_factor;
-	size_t nvertex, nedge, im_wid, im_hgt;
+	dtypes::Pixel *pixels;
+	dtypes::Segment *segment_foreach_pixel;
+	disjointset::DisjointSet<dtypes::Segment> disjoint_set_struct;
+
+	std::vector<EdgeWrapper> edges;
+
+	//std::vector<int> hashtable_indices;
+	//std::vector<int> 
+
+	std::set<dtypes::Segment *, compare_segments> partition;
+	
+	double(*weight_function)(dtypes::Pixel*, dtypes::Pixel*, double, double);
+
+	double xy_scale_factor;
+	double z_scale_factor;
+	int nvertex;
+	int nedge;
+	int im_wid;
+	int im_hgt;
     int type;
 	
 	cv::RNG color_rng;
 	cv::Mat segment_labels;
 
-    std::pair<Pixel *, Segment *>* disjoint_FindSet(std::pair<Pixel *, Segment *> *p)
-    {
-        std::pair<Pixel *, Segment *> *ppar = p->second->disjoint_parent;
-        if (p != ppar)
-        {
-            ppar = disjoint_FindSet(ppar);
-            p->second = ppar->second;
-        }
-        return ppar;
-    }
-
-    void disjoint_Union(std::pair<Pixel *, Segment *> *p1, std::pair<Pixel *, Segment *> *p2, double w)
-    {
-        Segment *pa = p1->second, *pb = p2->second;
-        if (pa->disjoint_rank > pb->disjoint_rank)
-        {
-            pb->disjoint_parent = p1;
-            pa->max_weight = w;
-            pa->numelements += pb->numelements;
-            pa->segment.splice(pa->segment.end(), pb->segment);
-
-			pa->mdepth += pb->mdepth;
-
-            partition.erase(pb);
-        }
-        else
-        {
-            pa->disjoint_parent = p2;
-            if (pa->disjoint_rank == pb->disjoint_rank)
-                pb->disjoint_rank++;
-            pb->max_weight = w;
-            pb->numelements += pa->numelements;
-            pb->segment.splice(pb->segment.end(), pa->segment);
-
-			pb->mdepth += pa->mdepth;
-
-            partition.erase(pa);
-        }
-    }
-
-	//------------------------------------------
-    //double calc_weight(Pixel *n1, Pixel *n2);
-    static double calc_weight_dist(Pixel *n1, Pixel *n2);
-    //double calc_weight_color(Pixel *n1, Pixel *n2, int im_type);
-    //double calc_weight_
-    // other weight functions
-	//------------------------------------------
+	inline int get_smart_index(int i, int j);
 
 #if USE_COLOR == 1
-    std::pair<Pixel *, Segment *>* add_vertex(int i, int j, cv::Vec3f &v, float dep)
+	inline void set_vertex(cv::Vec3f &pixval, float coordx, float coordy, float coordz);
 #else
-    std::pair<Pixel *, Segment *>* add_vertex(int i, int j, float v, float dep)
+	inline void set_vertex(float pixval, float coordx, float coordy, float coordz);
 #endif
-	{
-		Segment *seg = new Segment(1, i * im_wid + j, (double)UINT64_MAX, v, i, j, dep, z_scale_factor);
-		pixels.push_back(new std::pair<Pixel *, Segment *>(seg->root, seg));
-		pixels.back()->second->disjoint_parent = pixels.back();
-        partition.insert(seg);
-		return pixels.back();
-	}
 
-    Edge* add_edge(std::pair<Pixel *, Segment *> *pa, std::pair<Pixel *, Segment *> *pb, double(*wfunc)(Pixel *, Pixel *))
-    {
-		Edge *e = new Edge(pa, pb, (*wfunc)(pa->first, pb->first));
-#if EDGES_VECTOR
-		edges.push_back(e);
-#else
-		edges.insert(e);
-#endif
-		return e;
-	}
-
-	std::pair<Pixel *, Segment *>* get_vertex_by_index(int i, int j)
-    {
-		return pixels[i * this->im_wid + j];
-	}
-
-	//void calc_similatiry();
-
-	cv::Vec3f* _get_pixel_location(const Pixel *p);
+	inline void set_edge(int pos, int x1, int y1, int x2, int y2);
 
 	int model_and_cluster(int, const std::vector<float>&);
+
 public:
 	ImageGraph() {}
-	// constructs a graph with pixels as vertices and edge weights as the color difference
-	// between neighborhood pixels. once the graph is done, sorts the list of edges
-	// according to their weights (in ascending order)
-	// the vertice set is represented by disjoint-set data structure
-	ImageGraph(cv::Mat &image, cv::Mat &depth, int v, int flag_metrics, float zcoord_weight);
+	
+	ImageGraph(cv::Mat &image,
+		cv::Mat &depth,
+		int v,
+		int flag_metrics,
+		double xy_coord_weight,
+		double z_coord_weight);
+	
 	~ImageGraph();
 
 	int SegmentationKruskal(double k);
+	
 	//void MakeLabels();
-	void Clustering(
+	
+	void Refine(
 		int min_segment_size,
 		int target_num_segments,
 		int mode,
@@ -141,7 +87,9 @@ public:
 		int *pixels_under_thres,
 		int *seg_under_thres,
 		int *num_mergers);
+	
 	void PlotSegmentation(int, const char*);
+	
 	void PrintSegmentationInfo(const char*) const;
 
 	enum ClusteringMode
@@ -151,3 +99,16 @@ public:
 		BOTH = 3
 	};
 };
+
+
+
+namespace metrics
+{
+	//------------------------------------------
+	//double calc_weight(Pixel *n1, Pixel *n2);
+	double calc_weight_dist(dtypes::Pixel*, dtypes::Pixel*, double xy_sc = 1.0, double z_sc = 1.0);
+	//double calc_weight_color(Pixel *n1, Pixel *n2, int im_type);
+	//double calc_weight_
+	// other weight functions
+	//------------------------------------------
+}
