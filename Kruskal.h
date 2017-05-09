@@ -6,8 +6,8 @@
 
 
 class ImageGraph
-{	
-	/*typedef struct
+{	    
+    /*typedef struct
 	{
 		disjointset::DisjointSetNode node;
 		dtypes::Segment segment;

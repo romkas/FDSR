@@ -285,23 +285,40 @@ int ImageGraph::model_and_cluster(int target_num_segments, const std::vector<flo
     t = clock() - t;
     printf("TIME (RANSAC. Calculating models          ) (ms): %8.2f\n", (double)t * 1000. / CLOCKS_PER_SEC);
 	
-	// similarity
-	{
-		double(*sim_function)(cv::Vec3f&, cv::Vec3f&, float, float, double, double);
-		int similaritymetrics = *iter++;
-		switch ()
-		std::set<clustering::Similarity, clustering::compare_similarity> pairwise_sim;
-		int c = 0;
-
-		for (int t = 0; t < segment_count; t++)
-			for (int w = t + 1; w < segment_count; w++)
-			{
-				pairwise_sim.emplace(clustering::compute_simL2)
-			}
-	}
+    std::set<clustering::Distance, clustering::compare_distance> pairwise_dist;
+    cv::Mat matrix_dist = cv::Mat::zeros(cv::Size(segment_count, segment_count), CV_32FC1);
+    // similarity
+    {
+        float(*sim_function)(cv::Vec4f&, cv::Vec4f&, std::vector<float>&);
+        //double(*sim_function)(cv::Vec3f&, cv::Vec3f&, float, float, double, double);
+        int similaritymetrics = *iter++;
+        std::vector<float> funcparams;
+        switch (similaritymetrics)
+        {
+        case clustering::L2:
+            sim_function = &clustering::compute_distL2;
+            funcparams.push_back(*iter++);
+            funcparams.push_back(*iter++);
+            break;
+        default:
+            break;
+        }
+        int c = 0;
+        for (int t = 0; t < segment_count; t++)
+        {
+            
+            for (int w = t + 1; w < segment_count; w++)
+            {
+                matrix_dist.at<float>(t, w) = sim_function(partition_plane[partition[t]], partition_plane[partition[w]], funcparams);
+                pairwise_dist.emplace(matrix_dist.at<float>(t, w), c++, partition[t], partition[w]);
+            }
+        }
+    }
 
 	// clustering
-	
+    {
+        
+    }
 
 	return num_mergers;
 }
