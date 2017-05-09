@@ -7,38 +7,71 @@
 
 class ImageGraph
 {	
-	typedef struct
+	/*typedef struct
 	{
-		dtypes::Edge e;
-		disjointset::DisjointSetNode<dtypes::Segment> *x, *y;
-		//cv::Vec2i coordv1, coordv2;
-	} EdgeWrapper;
-	
-	typedef struct
-	{
-		bool operator()(const dtypes::Segment *s1, const dtypes::Segment *s2) const
-		{
-			return s1->numelements != s2->numelements ? s1->numelements < s2->numelements : s1->label < s2->label;
-            //return s1->label < s2->label;
-		}
-	} compare_segments;
+		disjointset::DisjointSetNode node;
+		dtypes::Segment segment;
+	} SegmentationData;*/
+
+	//typedef struct
+	//{
+	//	bool operator()(const dtypes::Segment *s1, const dtypes::Segment *s2) const
+	//	{
+	//		return s1->numelements != s2->numelements ? s1->numelements < s2->numelements : s1->label < s2->label;
+ //           //return s1->label < s2->label;
+	//	}
+	//} compare_segments;
 
 	//std::vector<Edge *> edges;
 	//std::vector<std::pair<Pixel*, Segment *> *> pixels;
 
-	
-	dtypes::Pixel *pixels;
-	dtypes::Segment *segment_foreach_pixel;
-	disjointset::DisjointSet<dtypes::Segment> disjoint_set_struct;
+	cv::Mat img;
+	cv::Mat dep;
 
-	std::vector<EdgeWrapper> edges;
+	//dtypes::Pixel *pixels;
+	//dtypes::Segment *segment_foreach_pixel;
+	//disjointset::DisjointSet<dtypes::Segment> disjoint_set_struct;
+	//SegmentationData *disjoint_set;
+	
+	disjointset::DisjointSetNode *disjoint_set;
+
+	int *__x;
+	int *__y;
+
+	//int segment_counter;
+
+	//std::vector<EdgeWrapper> edges;
+	
+	std::vector<dtypes::Edge> edges;
 
 	//std::vector<int> hashtable_indices;
 	//std::vector<int> 
 
-	std::set<dtypes::Segment *, compare_segments> partition;
+	//std::set<dtypes::Segment*, compare_segments> partition;
 	
-	double(*weight_function)(dtypes::Pixel*, dtypes::Pixel*, double, double);
+	int *partition_src;
+	std::vector<int> partition;
+	std::vector< std::list<cv::Vec2i> > partition_content_src;
+	std::vector< std::list<cv::Vec2i> > partition_content;
+	float *partition_avdepth_src;
+	std::vector<float> partition_avdepth;
+
+	cv::Vec3f *partition_vnormal;
+	cv::Vec4f *partition_plane;
+
+	int segment_count_src, segment_count;
+
+	//double(*weight_function)(dtypes::Pixel*, dtypes::Pixel*, double, double);
+	
+	double(*weight_function)(
+#if USE_COLOR == 1
+		cv::Vec3f&, cv::Vec3f&,
+#else
+		float p1, float p2,
+#endif
+		float depth1, float depth2,
+		int x1, int y1, int x2, int y2,
+		double xy_sc, double z_sc);
 
 	double xy_scale_factor;
 	double z_scale_factor;
@@ -53,13 +86,15 @@ class ImageGraph
 
 	inline int get_smart_index(int i, int j);
 
-#if USE_COLOR == 1
-	inline void set_vertex(cv::Vec3f &pixval, float coordx, float coordy, float coordz);
-#else
-	inline void set_vertex(float pixval, float coordx, float coordy, float coordz);
-#endif
+//#if USE_COLOR == 1
+//	inline void set_vertex(cv::Vec3f &pixval, float coordx, float coordy, float coordz);
+//#else
+//	inline void set_vertex(float pixval, float coordx, float coordy, float coordz);
+//#endif
+	
+	inline void set_vertex(int x, int y);
 
-	inline void set_edge(int pos, int x1, int y1, int x2, int y2);
+	inline void set_edge(dtypes::Edge*, int x1, int y1, int x2, int y2);
 
 	int model_and_cluster(int, const std::vector<float>&);
 
@@ -106,7 +141,19 @@ namespace metrics
 {
 	//------------------------------------------
 	//double calc_weight(Pixel *n1, Pixel *n2);
-	double calc_weight_dist(dtypes::Pixel*, dtypes::Pixel*, double xy_sc = 1.0, double z_sc = 1.0);
+	
+	//double calc_weight_dist(dtypes::Pixel*, dtypes::Pixel*, double xy_sc = 1.0, double z_sc = 1.0);
+	
+	double metrics::calc_weight_dist(
+#if USE_COLOR == 1
+		cv::Vec3f&, cv::Vec3f&,
+#else
+		float p1, float p2,
+#endif
+		float depth1, float depth2,
+		int x1, int y1, int x2, int y2,
+		double xy_sc, double z_sc);
+	
 	//double calc_weight_color(Pixel *n1, Pixel *n2, int im_type);
 	//double calc_weight_
 	// other weight functions

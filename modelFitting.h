@@ -11,18 +11,6 @@
 
 namespace model
 {
-	enum ModelType
-	{
-		PLANE,
-		OTHER_MODEL
-	};
-
-	enum EstimatorType
-	{
-		GRADESCENT,
-		OTHER_METHOD
-	};
-
 	enum RegularizationType
 	{
 		L1,
@@ -32,9 +20,6 @@ namespace model
 
 	static std::random_device rd;
 	static std::minstd_rand rng;
-
-	static std::vector<float> defaultransac;
-	static std::vector<float> defaultestimator;
 
 	class Estimator
 	{

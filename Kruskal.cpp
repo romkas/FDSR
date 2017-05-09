@@ -2,6 +2,7 @@
 #include "modelFitting.h"
 #include "ransac.h"
 #include "compute.h"
+#include "hierarchical.h"
 #include <opencv2\highgui.hpp>
 #include <algorithm>
 #include <memory>
@@ -14,31 +15,47 @@ inline int ImageGraph::get_smart_index(int i, int j)
 	return i * this->im_wid + j;
 }
 
-#if USE_COLOR == 1
-inline void ImageGraph::set_vertex(cv::Vec3f & pixval, float coordx, float coordy, float coordz)
-#else
-inline void ImageGraph::set_vertex(float pixval, float coordx, float coordy, float coordz)
-#endif
+//#if USE_COLOR == 1
+//inline void ImageGraph::set_vertex(cv::Vec3f & pixval, float coordx, float coordy, float coordz)
+//#else
+//inline void ImageGraph::set_vertex(float pixval, float coordx, float coordy, float coordz)
+//#endif
+//{
+//	int k = get_smart_index((int)coordx, (int)coordy);
+//	//dtypes::MakePixel(pixels, k, pixval, coordx, coordy, coordz);
+//	//dtypes::MakeSegment(segment_foreach_pixel, k, 1, k, (double)UINT64_MAX, pixels + k);
+//	//disjointset::MakeSet(&disjoint_set_struct, k, segment_foreach_pixel + k);
+//	disjointset::MakeSet(&(disjoint_set[k].node));
+//	dtypes::MakeSegment(&(disjoint_set[k].segment), 1, k, (double)UINT64_MAX);
+//}
+
+inline void ImageGraph::set_vertex(int x, int y)
 {
-	int k = get_smart_index((int)coordx, (int)coordy);
-	dtypes::MakePixel(pixels, k, pixval, coordx, coordy, coordz);
-	dtypes::MakeSegment(segment_foreach_pixel, k, 1, k, (double)UINT64_MAX, pixels + k);
-	disjointset::MakeSet(&disjoint_set_struct, k, segment_foreach_pixel + k);
+	int k = get_smart_index(x, y);
+	disjointset::MakeSet(&(disjoint_set[k]), k);
+	dtypes::MakeSegment(&(disjoint_set[k].segmentinfo));
+	__x[k] = x;
+	__y[k] = y;
 }
 
-inline void ImageGraph::set_edge(int pos, int x1, int y1, int x2, int y2)
+inline void ImageGraph::set_edge(dtypes::Edge *e, int x1, int y1, int x2, int y2)
 {
 	int pixpos1 = get_smart_index(x1, y1);
 	int pixpos2 = get_smart_index(x2, y2);
-	dtypes::MakeEdge(&(edges[pos].e),
-		pixels + pixpos1, pixels + pixpos2,
+	dtypes::MakeEdge(e, x1, y1, x2, y2,
 		weight_function(
-			pixels + pixpos1, pixels + pixpos2, 
+		#if USE_COLOR == 1
+			img.at<cv::Vec3f>(x1, y1), img.at<cv::Vec3f>(x2, y2),
+		#else
+			img.at<float>(x1, y1), img.at<float>(x2, y2),
+		#endif
+			dep.at<float>(x1, y1), dep.at<float>(x2, y2),
+			x1, y1, x2, y2,
 			this->xy_scale_factor, this->z_scale_factor
 		)
 	);
-	edges[pos].x = disjoint_set_struct.disjoint_set + pixpos1;
-	edges[pos].y = disjoint_set_struct.disjoint_set + pixpos2;
+	//edges[pos].x = disjoint_set_struct.disjoint_set + pixpos1;
+	//edges[pos].y = disjoint_set_struct.disjoint_set + pixpos2;
 	//edges->at(k).coordv1 = cv::Vec2i((int)p1->pixcoords[0], (int)p1->pixcoords[1]);
 	//edges->at(k).coordv2 = cv::Vec2i((int)p2->pixcoords[0], (int)p2->pixcoords[1]);
 }
@@ -50,6 +67,9 @@ ImageGraph::ImageGraph(cv::Mat &image,
 	double xy_coord_weight,
 	double z_coord_weight)
 {
+	this->img = image;
+	this->dep = depth;
+	
 	this->im_wid = image.cols;
 	this->im_hgt = image.rows;
 	this->nvertex = im_wid * im_hgt;
@@ -69,12 +89,20 @@ ImageGraph::ImageGraph(cv::Mat &image,
 
 	}
 
-	pixels = new dtypes::Pixel[nvertex];
+	//pixels = new dtypes::Pixel[nvertex];
 	//edges = new std::vector<EdgeWrapper>(nedge);
-	edges.resize(nedge);
-	segment_foreach_pixel = new dtypes::Segment[nvertex];
+	
+	disjoint_set = new disjointset::DisjointSetNode[nvertex];
+	__x = new int[nvertex];
+	__y = new int[nvertex];
 
-	disjointset::alloc_mem(&disjoint_set_struct, nvertex);
+	this->segment_count_src = nvertex;
+
+	edges.resize(nedge);
+	
+	//segment_foreach_pixel = new dtypes::Segment[nvertex];
+
+	//disjointset::alloc_mem(&disjoint_set_struct, nvertex);
 
 	//disjoint_set_struct.size = nvertex;
 	//disjoint_set_struct.disjoint_set = new disjointset::DisjointSetNode<dtypes::Segment>[nvertex];
@@ -91,89 +119,56 @@ ImageGraph::ImageGraph(cv::Mat &image,
 	switch (v)
 	{
 	case 4:
-	#if USE_COLOR == 1
-		set_vertex(image.at<cv::Vec3f>(0, 0), 0.0f, 0.0f, depth.at<float>(0, 0));
-	#else
-		set_vertex(image.at<float>(0, 0), 0.0f, 0.0f, depth.at<float>(0, 0));
-	#endif
+		set_vertex(0, 0);
 
 		for (int j = 1; j < im_wid; j++)
 		{
-		#if USE_COLOR == 1
-			set_vertex(image.at<cv::Vec3f>(0, j), 0.0f, (float)j, depth.at<float>(0, j));
-		#else
-			set_vertex(image.at<float>(0, j), 0.0f, (float)j, depth.at<float>(0, j));
-		#endif
-			set_edge(p++, 0, j, 0, j - 1);
+			set_vertex(0, j);
+			set_edge(&(edges[p++]), 0, j, 0, j - 1);
 		}
 
 		for (int i = 1; i < im_hgt; i++)
 		{
-		#if USE_COLOR == 1
-			set_vertex(image.at<cv::Vec3f>(i, 0), (float)i, 0.0f, depth.at<float>(i, 0));
-		#else
-			set_vertex(image.at<float>(i, 0), (float)i, 0.0f, depth.at<float>(i, 0));
-		#endif
-			set_edge(p++, i, 0, i - 1, 0);
+			set_vertex(i, 0);
+			set_edge(&(edges[p++]), i, 0, i - 1, 0);
 		}
 
 		for (int i = 1; i < im_hgt; i++)
 			for (int j = 1; j < im_wid; j++)
 			{
-			#if USE_COLOR == 1
-				set_vertex(image.at<cv::Vec3f>(i, j), (float)i, (float)j, depth.at<float>(i, j));
-			#else
-				set_vertex(image.at<float>(i, j), (float)i, (float)j, depth.at<float>(i, j));
-			#endif
-				set_edge(p++, i, j, i, j - 1);
-				set_edge(p++, i, j, i - 1, j);
+				set_vertex(i, j);
+				set_edge(&(edges[p++]), i, j, i, j - 1);
+				set_edge(&(edges[p++]), i, j, i - 1, j);
 			}
 		break;
 	case 8:
-	#if USE_COLOR == 1
-		set_vertex(image.at<cv::Vec3f>(0, 0), 0.0f, 0.0f, depth.at<float>(0, 0));
-	#else
-		set_vertex(image.at<float>(0, 0), 0.0f, 0.0f, depth.at<float>(0, 0));
-	#endif
+		set_vertex(0, 0);
 
 		for (int j = 1; j < im_wid; j++)
 		{
-		#if USE_COLOR == 1
-			set_vertex(image.at<cv::Vec3f>(0, j), 0.0f, (float)j, depth.at<float>(0, j));
-		#else
-			set_vertex(image.at<float>(0, j), 0.0f, (float)j, depth.at<float>(0, j));
-		#endif
-			set_edge(p++, 0, j, 0, j - 1);
+			set_vertex(0, j);
+			set_edge(&(edges[p++]), 0, j, 0, j - 1);
 		}
 
 		for (int i = 1; i < im_hgt; i++)
 		{
-		#if USE_COLOR == 1
-			set_vertex(image.at<cv::Vec3f>(i, 0), (float)i, 0.0f, depth.at<float>(i, 0));
-			set_vertex(image.at<cv::Vec3f>(i, im_wid - 1), (float)i, (float)(im_wid - 1), depth.at<float>(i, im_wid - 1));
-		#else
-			set_vertex(image.at<float>(0, j), 0.0f, (float)j, depth.at<float>(0, j));
-			set_vertex(image.at<float>(i, im_wid - 1), (float)i, (float)(im_wid - 1), depth.at<float>(i, im_wid - 1));
-		#endif
-			set_edge(p++, i, 0, i - 1, 0);
-			set_edge(p++, i, 0, i - 1, 1);
-			set_edge(p++, i, im_wid - 1, i - 1, im_wid - 1);
-			set_edge(p++, i, im_wid - 1, i - 1, im_wid - 2);
-			set_edge(p++, i, im_wid - 1, i, im_wid - 2);
+			set_vertex(i, 0);
+			set_vertex(i, im_wid - 1);
+			set_edge(&(edges[p++]), i, 0, i - 1, 0);
+			set_edge(&(edges[p++]), i, 0, i - 1, 1);
+			set_edge(&(edges[p++]), i, im_wid - 1, i - 1, im_wid - 1);
+			set_edge(&(edges[p++]), i, im_wid - 1, i - 1, im_wid - 2);
+			set_edge(&(edges[p++]), i, im_wid - 1, i, im_wid - 2);
 		}
 
 		for (int i = 1; i < im_hgt; i++)
 			for (int j = 1; j < im_wid - 1; j++)
 			{
-			#if USE_COLOR == 1
-				set_vertex(image.at<cv::Vec3f>(i, j), (float)i, float(j), depth.at<float>(i, j));
-			#else
-				set_vertex(image.at<float>(i, j), (float)i, (float)j, depth.at<float>(i, j));
-			#endif
-				set_edge(p++, i, j, i, j - 1);
-				set_edge(p++, i, j, i - 1, j - 1);
-				set_edge(p++, i, j, i - 1, j);
-				set_edge(p++, i, j, i - 1, j + 1);
+				set_vertex(i, j);
+				set_edge(&(edges[p++]), i, j, i, j - 1);
+				set_edge(&(edges[p++]), i, j, i - 1, j - 1);
+				set_edge(&(edges[p++]), i, j, i - 1, j);
+				set_edge(&(edges[p++]), i, j, i - 1, j + 1);
 			}
 		break;
 	default:
@@ -188,7 +183,7 @@ ImageGraph::ImageGraph(cv::Mat &image,
 //#if EDGES_VECTOR == 1
 	t = clock();
 	std::sort(edges.begin(), edges.end(),
-		[](const EdgeWrapper &e1, const EdgeWrapper &e2) { return e1.e.weight < e2.e.weight; }
+		[](const dtypes::Edge &e1, const dtypes::Edge &e2) { return e1.weight < e2.weight; }
 	);
 	t = clock() - t;
 	printf("TIME (Edges list sorting                  ) (ms): %8.2f\n", (double)t * 1000. / CLOCKS_PER_SEC);
@@ -213,10 +208,10 @@ ImageGraph::~ImageGraph()
 //    for (int i = 0; i < pixels.size(); i++)
 //		delete pixels[i];
 	//delete edges;
-	delete segment_foreach_pixel;
-	delete pixels;
-	
-	disjointset::release_mem(&disjoint_set_struct);
+	//delete segment_foreach_pixel;
+	//delete pixels;
+	delete disjoint_set;
+	//disjointset::release_mem(&disjoint_set_struct);
 }
 
 //void ImageGraph::MakeLabels()
@@ -239,123 +234,77 @@ ImageGraph::~ImageGraph()
 //	return new cv::Vec3f(p->horiz_coords[0], p->horiz_coords[1], p->depth);
 //}
 
-//int ImageGraph::model_and_cluster(int target_num_segments, const std::vector<float>& params)
-//{
-//	int num_mergers = 0;
-//	float total_error = 0.0f;
-//
-//	std::vector<float> estimatorparams;
-//
-//	auto iter = params.begin();
-//	
-//	clock_t t;
-//
-//	int ransac_n = *iter++;
-//	int ransac_k = *iter++;
-//	float ransac_thres = *iter++;
-//	int ransac_d = *iter++;
-//	int model_type = *iter++;
-//	int estimatormode;
-//	if (model_type == model::PLANE)
-//	{
-//		estimatormode = *iter++;
-//		estimatorparams.assign(iter, params.end());
-//		//m = new model::Plane;
-//
-//        //m = std::make_shared<model::Plane>();
-//
-//        //model::Plane * m = new model::Plane;
-//
-//        if (estimatormode == model::GRADESCENT)
-//		{
-//			//e = new model::GradientDescent(estimatorparams);
-//
-//            /*model::GradientDescent * e = new model::GradientDescent;
-//            e->setParams(estimatorparams);*/
-//
-//            t = clock();
-//            { // calculate model parameters for each segment
-//                model::InitRANSAC();
-//                for (auto it = partition.begin(); it != partition.end(); it++)
-//                {
-//					std::vector<cv::Vec3f> sample((*it)->numelements);
-//					int s = 0;
-//					//std::transform((*it)->segment.begin(), (*it)->segment.end(), sample.begin(), _get_pixel_location);
-//					for (auto it_list = (*it)->segment.begin(); it_list != (*it)->segment.end(); it_list++)
-//					{
-//						// sample.push_back(_get_pixel_location(*it_list));
-//						sample.emplace_back((*it_list)->horiz_coords[0], (*it_list)->horiz_coords[1], (*it_list)->depth);
-//					}
-//
-//                    /*total_error += RANSAC(sample,
-//                        static_cast<model::Plane*>(m),
-//                        static_cast<model::GradientDescent*>(e),
-//                        ransac_n, ransac_k, ransac_thres, ransac_d);*/
-//                    //total_error += RANSAC(sample, m, e, ransac_n, ransac_k, ransac_thres, ransac_d);
-//
-//                    (*it)->m = new model::Plane;
-//
-//                    total_error += RANSAC(sample, (*it)->m, e, ransac_n, ransac_k, ransac_thres, ransac_d);
-//
-//                    for (auto itv = sample.begin(); itv != sample.end(); itv++)
-//                        delete *itv;
-//
-//                    sample.clear();
-//                }
-//            }
-//            t = clock() - t;
-//            printf("TIME (RANSAC. Calculating models          ) (ms): %8.2f\n", (double)t * 1000. / CLOCKS_PER_SEC);
-//		}
-//		else if (estimatormode == model::OTHER_METHOD)
-//		{
-//
-//		}
-//		else
-//		{
-//
-//		}
-//	}
-//	else if (model_type == model::OTHER_MODEL)
-//	{ // parse additional parameters
-//
-//	}
-//	else
-//	{ // exception or sth else
-//
-//	}
-//
-//	//t = clock();
-//	//{ // calculate model parameters for each segment
-//	//	std::vector<cv::Vec3f*> sample;
-//	//	model::InitRANSAC();
-// //       for (auto it = partition.begin(); it != partition.end(); it++)
-// //       {
-// //           //std::transform((*it)->segment.begin(), (*it)->segment.end(), sample.begin(), _get_pixel_location);
-// //           for (auto it_list = (*it)->segment.begin(); it_list != (*it)->segment.end(); it_list++)
-// //               sample.push_back(_get_pixel_location(*it_list));
-//
-// //           total_error += RANSAC(sample,
-// //               static_cast<model::Plane*>(m),
-// //               static_cast<model::GradientDescent*>(e),
-// //               ransac_n, ransac_k, ransac_thres, ransac_d);
-//
-// //           for (auto itv = sample.begin(); itv != sample.end(); itv++)
-// //               delete *itv;
-//
-// //           sample.clear();
-// //       }
-//	//}
-//	//t = clock() - t;
-//	//printf("TIME (RANSAC. Calculating models          ) (ms): %8.2f\n", (double)t * 1000. / CLOCKS_PER_SEC);
-//	
-//	// similarity
-//
-//
-//	// clustering
-//	
-//
-//	return num_mergers;
-//}
+int ImageGraph::model_and_cluster(int target_num_segments, const std::vector<float>& params)
+{
+	int num_mergers = 0;
+	float total_error = 0.0f;
+	auto iter = params.begin();
+	clock_t t;
+
+	t = clock();
+    { // calculate model parameters for each segment
+		std::vector<float> estimatorparams;
+
+		int ransac_n = *iter++;
+		int ransac_k = *iter++;
+		float ransac_thres = *iter++;
+		int ransac_d = *iter++;
+
+		int gradescent_regularization;
+		int gradescent_metrics;
+		
+		estimatorparams.push_back(gradescent_regularization = *iter++);
+		estimatorparams.push_back(gradescent_metrics = *iter++);
+
+		model::InitRANSAC();
+		
+		std::vector<cv::Vec3f> sample;
+		int segsize;
+		//int w;
+        
+		for (int t = 0; t < segment_count; t++)
+        {
+			segsize = disjoint_set[t].segmentinfo.numelements;
+			sample.reserve(segsize);
+			//sample.resize(segsize);
+
+			//w = 0;
+			
+			for (auto it = partition_content[t].begin(); it != partition_content[t].end(); it++)
+				//sample[w++] = cv::Vec3f((*it)[0], (*it)[1], dep.at<float>((*it)[0], (*it)[1]));
+				sample.push_back(cv::Vec3f((*it)[0], (*it)[1], dep.at<float>((*it)[0], (*it)[1])));
+
+			total_error += model::RANSAC(sample, ransac_n, ransac_k, ransac_thres, ransac_d, partition_plane + t);
+			
+			partition_vnormal[t] = cv::Vec3f(partition_plane[t][0], partition_plane[t][1], partition_plane[t][2]);
+			partition_vnormal[t] /= (float)cv::norm(partition_vnormal[t], cv::NORM_L2);
+
+            sample.clear();
+        }
+	}
+    t = clock() - t;
+    printf("TIME (RANSAC. Calculating models          ) (ms): %8.2f\n", (double)t * 1000. / CLOCKS_PER_SEC);
+	
+	// similarity
+	{
+		double(*sim_function)(cv::Vec3f&, cv::Vec3f&, float, float, double, double);
+		int similaritymetrics = *iter++;
+		switch ()
+		std::set<clustering::Similarity, clustering::compare_similarity> pairwise_sim;
+		int c = 0;
+
+		for (int t = 0; t < segment_count; t++)
+			for (int w = t + 1; w < segment_count; w++)
+			{
+				pairwise_sim.emplace(clustering::compute_simL2)
+			}
+	}
+
+	// clustering
+	
+
+	return num_mergers;
+}
 
 void ImageGraph::Refine(
 	int min_segment_size,
@@ -372,36 +321,61 @@ void ImageGraph::Refine(
 	
 	clock_t t;
 
+	segment_count = segment_count_src;
+
+	if (partition.size())
+	{
+		partition.clear();
+		partition_content.clear();
+		partition_avdepth.clear();
+	}
+
 	if (mode & ClusteringMode::REMOVE)
 	{
 		t = clock();
-		// remove small segments
-		auto iter = partition.begin();
-		while (iter != partition.end()/* && (*iter)->numelements < min_segment_size*/)
-			//for (auto iter = partition.begin(); iter != partition.end(); iter++)
+		for (int u = 0; u < segment_count_src; u++)
 		{
-			if ((*iter)->numelements < min_segment_size)
+			if (disjoint_set[partition_src[u]].segmentinfo.numelements < min_segment_size)
 			{
 				(*seg_under_thres)++;
-				*pixels_under_thres += (*iter)->numelements;
-				iter = partition.erase(iter);
+				*pixels_under_thres += disjoint_set[partition_src[u]].segmentinfo.numelements;
 			}
 			else
-				iter++;
-			//iter++;
+			{
+				partition.push_back(partition_src[u]);
+				partition_content.push_back(partition_content_src[u]);
+				partition_avdepth.push_back(partition_avdepth_src[u]);
+			}
 		}
-		//partition.erase(partition.begin(), iter);
+		segment_count -= *seg_under_thres;
 		t = clock() - t;
 		printf("TIME (Removing small segments             ) (ms): %8.2f\n", (double)t * 1000. / CLOCKS_PER_SEC);
 	}
+	else
+	{
+		partition.resize(segment_count_src);
+		partition_content.resize(segment_count_src);
+		partition_avdepth.resize(segment_count_src);
+		for (int t = 0; t < segment_count_src; t++)
+		{
+			partition[t] = partition_src[t];
+			partition_content[t] = partition_content_src[t];
+			partition_avdepth.push_back(partition_avdepth_src[t]);
+		}
+	}
+
+
 	if (mode & ClusteringMode::MERGE)
 	{
 		t = clock();
-		// merge segments hierarchically
+		partition_vnormal = new cv::Vec3f[segment_count];
+		partition_plane = new cv::Vec4f[segment_count];
 		if (target_num_segments > 0)
 		{
-			//*num_mergers = model_and_cluster(target_num_segments, clustering_params);
+			*num_mergers = model_and_cluster(target_num_segments, clustering_params);
 		}
+		delete[] partition_plane;
+		delete[] partition_vnormal;
 		t = clock() - t;
 		printf("TIME (Merging segments                    ) (ms): %8.2f\n", (double)t * 1000. / CLOCKS_PER_SEC);
 	}
@@ -443,40 +417,59 @@ void ImageGraph::PrintSegmentationInfo(const char *fname) const
 
 int ImageGraph::SegmentationKruskal(double k)
 {
+	disjointset::DisjointSetNode *t1, *t2;
 	dtypes::Segment *seg1, *seg2;
-    //std::pair<dtypes::Pixel*, dtypes::Segment*> *temp1, *temp2;
-
-	disjointset::DisjointSetNode<dtypes::Segment> *t1, *t2, *tmp;
 
 	clock_t t = clock();
-
 	for (int i = 0; i < nedge; i++)
 	{
-		t1 = disjointset::FindSet(edges[i].x);
-		t2 = disjointset::FindSet(edges[i].y);
+		t1 = disjointset::FindSet(disjoint_set + get_smart_index(edges[i].x1, edges[i].y1));
+		t2 = disjointset::FindSet(disjoint_set + get_smart_index(edges[i].x2, edges[i].y2));
 
-		seg1 = t1->value;
-        seg2 = t2->value;
-        if (seg1 == seg2)
-            continue;
+		if (t1 == t2)
+			continue;
+
+		seg1 = &(t1->segmentinfo);
+		seg2 = &(t2->segmentinfo);
 
 		if (
-			edges[i].e.weight <=
+			edges[i].weight <=
 			std::min(seg1->max_weight + k / seg1->numelements,
 				seg2->max_weight + k / seg2->numelements)
 			)
 		{
-			tmp = disjointset::Union(t1, t2);
-			dtypes::UpdateSegment(tmp == t1 ? t1->value : t2->value,
-				tmp == t1 ? t2->value : t1->value, edges[i].e.weight);
+			disjointset::Union(t1, t2, edges[i].weight);
+			segment_count_src--;
 		}
 	}
 	t = clock() - t;
-	printf("TIME (Clustering pixels                   ) (ms): %8.2f\n", (double)t * 1000. / CLOCKS_PER_SEC);
+	printf("TIME (Kruskal algorithm                   ) (ms): %8.2f\n", (double)t * 1000. / CLOCKS_PER_SEC);
 	
-	/*t = clock();
-	for (int u = 0; u < )
-	t = clock() - t;*/
+	t = clock();
+	partition_src = new int[segment_count_src];
+	partition_content_src.resize(segment_count_src);
+	partition_avdepth_src = new float[segment_count_src]();
+	//partition_normals = new cv::Vec3f[segment_count_src];
+	dtypes::HashTable ht(this->nvertex);
+	int segments_found = 0, pos;
+	
+	for (int g = 0; g < this->nvertex; g++)
+	{
+		t1 = disjointset::FindSet(disjoint_set + g);
+		pos = segments_found;
+		if (ht.Search(t1->id, &pos) > 0) {}
+		else
+		{
+			ht.Insert(t1->id, pos);
+			segments_found++;
+		}
+		partition_src[pos] = t1->id;
+		cv::Vec2i pcoord(__x[g], __y[g]);
+		partition_content_src[pos].push_back(pcoord);
+		partition_avdepth_src[pos] += dep.at<float>(pcoord);
+	}
+	t = clock() - t;
+	printf("TIME (Forming segments                    ) (ms): %8.2f\n", (double)t * 1000. / CLOCKS_PER_SEC);
 
-	return (int)partition.size();
+	return segment_count_src;
 }
