@@ -286,7 +286,7 @@ int ImageGraph::model_and_cluster(int target_num_segments, const std::vector<flo
     printf("TIME (RANSAC. Calculating models          ) (ms): %8.2f\n", (double)t * 1000. / CLOCKS_PER_SEC);
 	
     std::set<clustering::Distance, clustering::compare_distance> pairwise_dist;
-    cv::Mat matrix_dist = cv::Mat::zeros(cv::Size(segment_count, segment_count), CV_32FC1);
+    //cv::Mat matrix_dist = cv::Mat::zeros(cv::Size(segment_count, segment_count), CV_32FC1);
     // similarity
     {
         float(*sim_function)(cv::Vec4f&, cv::Vec4f&, std::vector<float>&);
@@ -304,20 +304,44 @@ int ImageGraph::model_and_cluster(int target_num_segments, const std::vector<flo
             break;
         }
         int c = 0;
+		float d;
         for (int t = 0; t < segment_count; t++)
         {
             
             for (int w = t + 1; w < segment_count; w++)
             {
-                matrix_dist.at<float>(t, w) = sim_function(partition_plane[partition[t]], partition_plane[partition[w]], funcparams);
-                pairwise_dist.emplace(matrix_dist.at<float>(t, w), c++, partition[t], partition[w]);
+                //matrix_dist.at<float>(t, w) = sim_function(partition_plane[partition[t]], partition_plane[partition[w]], funcparams);
+				//pairwise_dist.emplace(matrix_dist.at<float>(t, w), c++, partition[t], partition[w]);
+
+				d = sim_function(partition_plane[partition[t]], partition_plane[partition[w]], funcparams);
+				pairwise_dist.emplace(d, c++, t, w);
             }
         }
     }
 
 	// clustering
     {
-        
+		const float arbitrary_negative_const = -3.0f;
+		auto it = pairwise_dist.begin();
+		clustering::Distance temp;
+		int _id, _ix, _iy;
+		float _dist;
+		while (it != pairwise_dist.end() || pairwise_dist.size() > target_num_segments)
+		{
+			temp = *it;
+			_id = temp.id;
+			_ix = temp.ix;
+			_iy = temp.iy;
+			_dist = temp.sim;
+			it = pairwise_dist.erase(it);
+			if (disjoint_set[partition[temp.ix]].rank > disjoint_set[partition[temp.iy]].rank)
+			{
+				disjoint_set[partition[temp.iy]].parent = disjoint_set + partition[temp.ix];
+			}
+			disjoint_set[partition[temp.ix]];
+			disjoint_set[partition[temp.iy]];
+			
+		}
     }
 
 	return num_mergers;

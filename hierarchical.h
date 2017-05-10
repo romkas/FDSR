@@ -11,9 +11,28 @@ namespace clustering
 		int id;
 		int ix, iy;
 
+		Distance() {}
+
 		Distance(float simeasure, int id_pair, int first, int second) :
 			sim(simeasure), id(id_pair), ix(first), iy(second)
 		{}
+
+		/*Distance(const Distance &other)
+		{
+			sim = other.sim;
+			id = other.id;
+			ix = other.ix;
+			iy = other.iy;
+		}*/
+
+		Distance& operator=(const Distance &other)
+		{
+			sim = other.sim;
+			id = other.id;
+			ix = other.ix;
+			iy = other.iy;
+			return *this;
+		}
 	};
 
 	typedef struct
