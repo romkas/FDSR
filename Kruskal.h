@@ -50,8 +50,10 @@ class ImageGraph
 	//std::set<dtypes::Segment*, compare_segments> partition;
 	
 	int *partition_src;
-	std::vector<int> partition;
-	std::vector< std::list<cv::Vec2i> > partition_content_src;
+	//std::vector<int> partition;
+	
+    std::vector<std::vector<int>> partition;
+    std::vector< std::list<cv::Vec2i> > partition_content_src;
 	std::vector< std::list<cv::Vec2i> > partition_content;
 	float *partition_avdepth_src;
 	std::vector<float> partition_avdepth;
@@ -96,8 +98,13 @@ class ImageGraph
 
 	inline void set_edge(dtypes::Edge*, int x1, int y1, int x2, int y2);
 
-	int model_and_cluster(int, const std::vector<float>&);
+	int model_and_cluster(int, const std::vector<float>&, float*);
 
+    float run_ransac(std::vector<float>&, std::vector<int>&);
+    
+    int run_lance_williams_algorithm(std::vector<int>&);
+
+    void find_nearest_clusters(cv::Vec4f&, cv::Vec4f&)
 public:
 	ImageGraph() {}
 	

@@ -19,3 +19,8 @@ float clustering::compute_distL2(
     cv::Vec3f n2(plane2[0], plane2[1], plane2[2]);
     return w_normal * (cv::norm(n1) * cv::norm(n2) - std::abs(n1.dot(n2))) + w_depth * std::abs(plane1[3] - plane2[3]);
 }
+
+float clustering::distanceWard(std::vector<std::vector<int>> &partition, std::vector<int> &sizes)
+{
+    return 
+}

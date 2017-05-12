@@ -57,4 +57,6 @@ namespace clustering
     {
         std::vector<int> roots;
     };*/
+
+    inline float distanceWard(float, float, float, int, int);
 }

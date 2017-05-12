@@ -1,14 +1,18 @@
 #include "modelFitting.h"
+#include <numeric>
+#include <iterator>
 
 
-//bool model::FitToModel(cv::Vec3f * p, std::vector<float>& modelparams, int param_thres)
-//{
-//	return cv::abs(p->operator[](0) +
-//		p->operator[](1) * modelparams[0] +
-//		p->operator[](2) * modelparams[1] +
-//		modelparams[2]) <= param_thres;
-//}
-//
+float model::FitToPlane(const cv::Vec3f &p, const cv::Vec4f &plane)
+{
+    return p[0] + plane[1] * p[1] + plane[2] * p[2] + plane[3];
+}
+
+bool model::checkFit(const cv::Vec3f &p, const cv::Vec4f &plane, float thres)
+{
+    return std::abs(p[0] + plane[1] * p[1] + plane[2] * p[2] + plane[3]) <= thres;
+}
+
 //void model::UpdateModelParams(std::vector<float>& modelparams, std::vector<float>& bestmodelparams)
 //{
 //	for (int w = 0; w < modelparams.size(); w++)
@@ -161,11 +165,6 @@
 //	return defaultestimator;
 //}
 
-void model::InitRANSAC()
-{
-    rng.seed(rd());
-}
-
 model::Plane::Plane()
 {
 }
@@ -287,68 +286,86 @@ float model::Plane::getCoords(int pos, int flag_temp) const
 //	return this->subsamp_end;
 //}
 
-model::GradientDescent::GradientDescent()
+void model::GradientDescent::SetParams(float lambda, int type)
 {
+    lam = lambda;
+    metrics = type;
 }
 
-model::GradientDescent::GradientDescent(std::vector<float>& p)
+void model::GradientDescent::SetBoundary(std::vector<cv::Vec3f>& sample, int leftbound, int rightbound)
 {
-	setParams(p);
+    data.swap(sample);
+    n = rightbound - leftbound;
 }
 
-model::GradientDescent::GradientDescent(const std::vector<float>& p)
+const cv::Vec4f& model::GradientDescent::getEstimate() const
 {
-    setParams(p);
+    return paramestimate;
 }
 
-model::GradientDescent::~GradientDescent()
+float model::GradientDescent::Apply()
 {
+    cv::Vec3f p;
+    float error = 0.0f;
+
+    if (metrics == L2)
+    {
+        float sumX = 0.0f,
+            sumY = 0.0f,
+            sumZ = 0.0f,
+            sumXY = 0.0f,
+            sumXZ = 0.0f,
+            sumYZ = 0.0f,
+            sumY2 = 0.0f,
+            sumZ2 = 0.0f;
+
+        for (int w = leftbound; w < rightbound; w++)
+        {
+            p = data[w];
+            sumX += p[0];
+            sumY += p[1];
+            sumZ += p[2];
+            sumXY += p[0] * p[1];
+            sumXZ += p[0] * p[2];
+            sumYZ += p[1] * p[2];
+            sumY2 += p[1] * p[1];
+            sumZ2 += p[2] * p[2];
+        }
+
+        paramestimate[0] = 1.0f;
+        paramestimate[2] = ((sumYZ + sumY*sumZ / (n + lam))*(sumXZ + sumX*sumY / (n + lam)) / (sumY2 + sumY*sumY / (n + lam) + lam) - sumXZ - sumX*sumZ / (n + lam)) /
+            (sumZ2 + sumZ*sumZ / (n + lam) + lam - (sumYZ + sumY*sumZ / (n + lam))*(sumYZ + sumY*sumZ / (n + lam)) / (sumY2 + sumY*sumY / (n + lam) + lam));
+        paramestimate[1] = (sumXY + sumX*sumY / (n + lam) + (sumYZ + sumY*sumZ / (n + lam))*paramestimate[2]) / (sumY2 + sumY*sumY / (n + lam) + lam);
+        paramestimate[3] = (sumX + sumY*paramestimate[1] + sumZ*paramestimate[2]) / (n + lam);
+
+        for (auto it = data.begin() + leftbound; it != data.begin() + rightbound; it++)
+            error += std::abs(FitToPlane(*it, paramestimate));
+
+        return error;
+
+        //M->setCoords(1.0f, 0, 1);
+        //M->setCoords(((sumYZ + sumY*sumZ / (n + lam))*(sumXZ + sumX*sumY / (n + lam)) / (sumY2 + sumY*sumY / (n + lam) + lam) - sumXZ - sumX*sumZ / (n + lam)) /
+        //    (sumZ2 + sumZ*sumZ / (n + lam) + lam - (sumYZ + sumY*sumZ / (n + lam))*(sumYZ + sumY*sumZ / (n + lam)) / (sumY2 + sumY*sumY / (n + lam) + lam)), 2, 1);
+        //M->setCoords((sumXY + sumX*sumY / (n + lam) + (sumYZ + sumY*sumZ / (n + lam))*M->getCoords(2, 1)) / (sumY2 + sumY*sumY / (n + lam) + lam), 1, 1);
+        //M->setCoords((sumX + sumY*M->getCoords(1, 1) + sumZ*M->getCoords(2, 1)) / (n + lam), 3, 1);
+
+        /*M->ff.coords = M->getCoords(1);
+        std::transform(
+        it_start, it_end,
+        std::back_inserter(errors),
+        [M](const cv::Vec3f * v) {return M}*/
+        //for (auto it = it_start; it != it_end; it++)
+        //    errors.push_back(M->Fit((*it), 1));
+        //return std::accumulate(errors.begin(), errors.end(), 0.0f);
+    }
+    else if (metrics == L1)
+    { // any iterative algorithm
+
+    }
+    else
+    { // another possible option
+
+    }
 }
 
-void model::GradientDescent::setParams(std::vector<float>& p)
-{
-	lam = p[0];
-	n = p[1];
-	metrics = p[2];
-}
-
-void model::GradientDescent::setParams(const std::vector<float>& p)
-{
-    lam = p[0];
-    n = p[1];
-    metrics = p[2];
-}
-
-void model::GradientDescent::setRegularizParam(float lambda)
-{
-	this->lam = lambda;
-}
-
-float model::GradientDescent::getRegularizParam() const
-{
-	return this->lam;
-}
-
-void model::GradientDescent::setSampleSize(int n)
-{
-	this->n = n;
-}
-
-int model::GradientDescent::getSampleSize() const
-{
-	return this->n;
-}
-
-void model::GradientDescent::setMetrics(int t)
-{
-	this->metrics = t;
-}
-
-int model::GradientDescent::getMetrics() const
-{
-	return this->metrics;
-}
-
-//void model::GradientDescent::Apply()
-//{
-//}
+//void model::GradientDescent::

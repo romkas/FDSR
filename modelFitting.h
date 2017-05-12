@@ -11,75 +11,53 @@
 
 namespace model
 {
-	enum RegularizationType
-	{
-		L1,
-		L2,
-		OTHER
-	};
+    class SimpleGenerator
+    {
+        static std::random_device rd;
+        static std::minstd_rand rng;
+        static std::uniform_int_distribution<> udist;
+    public:
+        SimpleGenerator() {}
+        ~SimpleGenerator() {}
+        static void SetRNG() { rng.seed(rd()); }
+        static void SetDist() { udist.param}
+        static const std::minstd_rand& Get() { return rng; }
+    };
 
-	static std::random_device rd;
-	static std::minstd_rand rng;
+    inline float FitToPlane(const cv::Vec3f&, const cv::Vec4f&);
+    inline bool checkFit(const cv::Vec3f&, const cv::Vec4f&, float);
 
-	class Estimator
+	class GradientDescent
 	{
-	public:
-        virtual ~Estimator() {}
-		// virtual void Apply() = 0;
-	};
-
-	class GradientDescent : public Estimator
-	{
-	private:
 		float lam;
 		int n;
-		int metrics;
-	public:
-		GradientDescent();
-		GradientDescent(std::vector<float>& p);
-        GradientDescent(const std::vector<float>& p);
-		~GradientDescent();
-		void setParams(std::vector<float>& p);
-        void setParams(const std::vector<float>& p);
-		void setRegularizParam(float lambda);
-		float getRegularizParam() const;
-		void setSampleSize(int n);
-		int getSampleSize() const;
-		void setMetrics(int t = RegularizationType::L2);
-		int getMetrics() const;
-		// void Apply();
+        int metrics;
+        std::vector<cv::Vec3f> data;
+        int leftbound, rightbound;
+        cv::Vec4f paramestimate;
+
+    public:
+        GradientDescent() {}
+        ~GradientDescent() {}
+
+        void SetParams(float, int);
+        void SetBoundary(std::vector<cv::Vec3f>&, int, int);
+        
+        inline const cv::Vec4f& getEstimate() const;
+
+        float Apply();
+
+        enum RegularizationType
+        {
+            L1,
+            L2,
+            OTHER
+        };
 	};
 
-	class BaseModel
-	{
-	protected:
-		//std::vector<cv::Vec3f*> data;
-		//int datasize;
-	public:
-        virtual ~BaseModel() {}
-		virtual float Fit(cv::Vec3f *p) const = 0;
-		virtual bool checkFit(cv::Vec3f *p, float thres) const = 0;
-		/*void setData(std::vector<cv::Vec3f*> &data)
-		{
-			this->data = data;
-			this->datasize = data.size();
-		}
-		std::vector<cv::Vec3f*>& getData()
-		{
-			return this->data;
-		}
-		const std::vector<cv::Vec3f*>& getData() const
-		{
-			return this->data;
-		}
-		int getDataSize() const
-		{
-			return this->datasize;
-		}*/
-		//Estimator *estimator;
-	};
 
-    class Plane : public BaseModel
+
+    class Plane
     {
     private:
         cv::Vec3f vnormal;
@@ -158,5 +136,4 @@ namespace model
 
 	//inline std::vector<float>& estimator_defaults();
 
-    void InitRANSAC();
 }
