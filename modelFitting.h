@@ -12,8 +12,8 @@
 
 namespace model
 {
-    inline float FitToPlane(const cv::Vec3f&, const cv::Vec4f&);
-    inline bool checkFit(const cv::Vec3f&, const cv::Vec4f&, float);
+    float FitToPlane(const cv::Vec3f&, const cv::Vec4f&);
+    bool checkFit(const cv::Vec3f&, const cv::Vec4f&, float);
 
 	class GradientDescent
 	{
@@ -31,7 +31,7 @@ namespace model
         void SetParams(float, int);
         void SetBoundary(std::vector<cv::Vec3f>&, int, int);
         
-        inline const cv::Vec4f& getEstimate() const;
+        const cv::Vec4f& getEstimate() const;
 
         float Apply();
 

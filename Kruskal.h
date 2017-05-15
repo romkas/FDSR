@@ -86,7 +86,7 @@ class ImageGraph
 	cv::RNG color_rng;
 	cv::Mat segment_labels;
 
-	inline int get_smart_index(int i, int j);
+	int get_smart_index(int i, int j);
 
 //#if USE_COLOR == 1
 //	inline void set_vertex(cv::Vec3f &pixval, float coordx, float coordy, float coordz);
@@ -94,9 +94,9 @@ class ImageGraph
 //	inline void set_vertex(float pixval, float coordx, float coordy, float coordz);
 //#endif
 	
-	inline void set_vertex(int x, int y);
+	void set_vertex(int x, int y);
 
-	inline void set_edge(dtypes::Edge*, int x1, int y1, int x2, int y2);
+	void set_edge(dtypes::Edge*, int x1, int y1, int x2, int y2);
 
 	int model_and_cluster(int, const std::vector<float>&, float*);
 
@@ -159,7 +159,7 @@ namespace metrics
 	
 	//double calc_weight_dist(dtypes::Pixel*, dtypes::Pixel*, double xy_sc = 1.0, double z_sc = 1.0);
 	
-	inline double calc_weight_dist(
+	double calc_weight_dist(
 #if USE_COLOR == 1
 		cv::Vec3f&, cv::Vec3f&,
 #else
@@ -174,9 +174,9 @@ namespace metrics
 	// other weight functions
 	//------------------------------------------
 
-	inline float lance_williams_ward(float, float, float, float, float, float, float);
+	float lance_williams_ward(float, float, float, float, float, float, float);
 
-	inline float compute_distL2(cv::Vec4f&, cv::Vec4f&, std::vector<float>&);
+	float compute_distL2(cv::Vec4f&, cv::Vec4f&, std::vector<float>&);
 
 	enum MetricsType
 	{

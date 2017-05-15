@@ -4,19 +4,22 @@
 
 class SimpleGenerator
 {
-	static std::minstd_rand rng;
+	std::minstd_rand *rng;
+    std::random_device rd;
 public:
-	SimpleGenerator() {}
-	~SimpleGenerator() {}
-	static void Set() { rng.seed(std::random_device()()); }
-	static const std::minstd_rand& Get() { return rng; }
+    SimpleGenerator();
+    ~SimpleGenerator();
+    //void Set();
+    //void Release();
+    
+    std::minstd_rand& Get();
 };
 
 class SimpleDistribution
 {
 	std::uniform_int_distribution<int> udist;
 public:
-	SimpleDistribution() {}
-	SimpleDistribution(int a, int b) : udist(std::uniform_int_distribution<int>(a, b)) {}
-	const std::uniform_int_distribution<int>& Get() const { return udist; }
+    SimpleDistribution() = default;
+    SimpleDistribution(int a, int b);
+    std::uniform_int_distribution<int>& Get();
 };

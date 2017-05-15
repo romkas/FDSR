@@ -12,9 +12,9 @@ namespace disjointset
 		dtypes::Segment segmentinfo;
 	};
 	
-	inline void MakeSet(DisjointSetNode *node, int id);
+	void MakeSet(DisjointSetNode *node, int id);
 
 	DisjointSetNode* FindSet(DisjointSetNode *node);
 
-	inline DisjointSetNode* Union(DisjointSetNode* node1, DisjointSetNode* node2, double w);
+	DisjointSetNode* Union(DisjointSetNode* node1, DisjointSetNode* node2, double w);
 }

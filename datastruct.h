@@ -34,17 +34,17 @@ namespace dtypes
 		//cv::Vec3b color;
 	};
 
-	inline void MakeEdge(Edge *e, int xx1, int yy1, int xx2, int yy2, double w);
+	void MakeEdge(Edge *e, int xx1, int yy1, int xx2, int yy2, double w);
 
-	inline void MakeSegment(Segment *seg);
+	void MakeSegment(Segment *seg);
 
-	inline void MakeSegment(Segment *seg, int numel, int label, double w);
+	void MakeSegment(Segment *seg, int numel, int label, double w);
 
-	inline void MakeSegment(Segment *seg, int numel, int label, double w, cv::Vec3b& color);
+	void MakeSegment(Segment *seg, int numel, int label, double w, cv::Vec3b& color);
 
-	inline void UpdateSegment(Segment *dest, Segment *src, double w);
+	void UpdateSegment(Segment *dest, Segment *src, double w);
 
-	inline void CopySegment(Segment *dest, Segment *src);
+	void CopySegment(Segment *dest, Segment *src);
 
 	class HashTable
 	{

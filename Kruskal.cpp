@@ -14,7 +14,7 @@
 #include <ctime>
 
 
-inline int ImageGraph::get_smart_index(int i, int j)
+int ImageGraph::get_smart_index(int i, int j)
 {
 	return i * this->im_wid + j;
 }
@@ -33,7 +33,7 @@ inline int ImageGraph::get_smart_index(int i, int j)
 //	dtypes::MakeSegment(&(disjoint_set[k].segment), 1, k, (double)UINT64_MAX);
 //}
 
-inline void ImageGraph::set_vertex(int x, int y)
+void ImageGraph::set_vertex(int x, int y)
 {
 	int k = get_smart_index(x, y);
 	disjointset::MakeSet(&(disjoint_set[k]), k);
@@ -42,7 +42,7 @@ inline void ImageGraph::set_vertex(int x, int y)
 	__y[k] = y;
 }
 
-inline void ImageGraph::set_edge(dtypes::Edge *e, int x1, int y1, int x2, int y2)
+void ImageGraph::set_edge(dtypes::Edge *e, int x1, int y1, int x2, int y2)
 {
 	int pixpos1 = get_smart_index(x1, y1);
 	int pixpos2 = get_smart_index(x2, y2);
@@ -244,7 +244,7 @@ int ImageGraph::model_and_cluster(int target_num_segments, const std::vector<flo
 {
 	clock_t t;
 
-	SimpleGenerator::Set();
+	//SimpleGenerator::Set();
 
     auto iter = params.begin();
     int ransac_n = *iter++;
@@ -449,7 +449,9 @@ int ImageGraph::run_lance_williams_algorithm(std::vector<float> &params)
 
 float ImageGraph::select_delta_param(cv::Mat &distmatrix, int n1, int n2)
 {
-	double maxdist = (double)UINT64_MAX, min;
+    extern SimpleGenerator __g;
+    
+    double maxdist = (double)UINT64_MAX, min;
 	if (segment_count <= n1)
 	{
 		cv::minMaxIdx(distmatrix, &min, &maxdist);
@@ -463,7 +465,7 @@ float ImageGraph::select_delta_param(cv::Mat &distmatrix, int n1, int n2)
 	std::vector<int> randoms2(n2);
 	while (c < n2)
 	{
-		temp = distrib.Get()(SimpleGenerator::Get());
+		temp = distrib.Get()(__g.Get());
 		if (std::find(randoms.begin(), randoms.end(), temp) == randoms.end())
 		{
 			randoms.push_back(temp);
@@ -766,7 +768,7 @@ int ImageGraph::SegmentationKruskal(double k)
 }
 
 
-inline double metrics::calc_weight_dist(
+double metrics::calc_weight_dist(
 #if USE_COLOR == 1
 	cv::Vec3f &p1, cv::Vec3f &p2,
 #else
@@ -789,12 +791,12 @@ inline double metrics::calc_weight_dist(
 		z_sc * zdelta * zdelta);
 }
 
-inline float metrics::lance_williams_ward(float rUV, float rUS, float rVS, float au, float av, float b, float g)
+float metrics::lance_williams_ward(float rUV, float rUS, float rVS, float au, float av, float b, float g)
 {
 	return au * rUS + av * rVS + b * rUV + g * std::abs(rUS - rVS);
 }
 
-inline float metrics::compute_distL2(cv::Vec4f &plane1, cv::Vec4f &plane2, std::vector<float> &params)
+float metrics::compute_distL2(cv::Vec4f &plane1, cv::Vec4f &plane2, std::vector<float> &params)
 {
 	float w_normal = params[0], w_depth = params[1];
 	cv::Vec3f n1(plane1[0], plane1[1], plane1[2]);

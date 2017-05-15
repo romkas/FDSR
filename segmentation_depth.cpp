@@ -1,5 +1,6 @@
 #include "Kruskal.h"
 #include "modelFitting.h"
+#include "random.h"
 #include <opencv2\core.hpp>
 #include <opencv2\highgui.hpp>
 #include <opencv2\imgproc.hpp>
@@ -188,8 +189,10 @@ void RunIteration(
 
 int main(int argc, char **argv)
 {
-	if (argc >= 9)
-	{
+    extern SimpleGenerator g;
+
+    //if (argc >= 9)
+	//{
 		int c = 1;
 		int param_pixel_vicinity = std::atoi(argv[c++]);
 		int param_edgeweight_metrics = std::atoi(argv[c++]);
@@ -425,10 +428,13 @@ int main(int argc, char **argv)
 		}
 
 		cv::waitKey();
-	}
-	else
-		print_help();
+	//}
+	//else
+	//	print_help();
 
 	//system("pause");
+
+    //SimpleGenerator::Release();
+
 	return 0;
 }

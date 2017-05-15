@@ -374,7 +374,9 @@ float model::GradientDescent::Apply()
 float model::RANSAC(std::vector<cv::Vec3f>& sample, int param_n, int param_k, float param_thres, int param_d,
 	GradientDescent* GD, cv::Vec4f& bestplane)
 {
-	std::vector<cv::Vec3f> also_inliers;
+    static SimpleGenerator *extg = &g;
+    
+    std::vector<cv::Vec3f> also_inliers;
 	//int also_inliers_size;
 
 	float error = -1.0f;
@@ -388,7 +390,7 @@ float model::RANSAC(std::vector<cv::Vec3f>& sample, int param_n, int param_k, fl
 
 	for (int t = 0; t < param_k; t++)
 	{
-		std::shuffle(sample.begin(), sample.end(), SimpleGenerator::Get());
+		std::shuffle(sample.begin(), sample.end(), extg->Get());
 		GD->SetBoundary(sample, 0, param_n);
 		GD->Apply();
 
