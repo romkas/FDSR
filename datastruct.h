@@ -28,8 +28,8 @@ namespace dtypes
 
 	struct Segment
 	{
-		int numelements;
 		double max_weight;
+		int numelements;
 		//int label;
 		//cv::Vec3b color;
 	};
@@ -69,6 +69,6 @@ namespace dtypes
 		int Search(int, int*) const;
 		int Insert(int, int);
 		bool Delete(unsigned int);
-		int getNumKeys() const;
+		int getNumKeys() const { return this->num_keys; }
 	};
 }

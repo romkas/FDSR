@@ -5,9 +5,11 @@
 #include "hierarchical.h"
 #include <opencv2\highgui.hpp>
 #include <algorithm>
+#include <iterator>
 //#include <memory>
 
-#include <random>
+#include "random.h"
+
 #include <cmath>
 #include <ctime>
 
@@ -65,7 +67,7 @@ inline void ImageGraph::set_edge(dtypes::Edge *e, int x1, int y1, int x2, int y2
 ImageGraph::ImageGraph(cv::Mat &image,
 	cv::Mat &depth,
 	int v,
-	int flag_metrics,
+	int edgeweight_metrics,
 	double xy_coord_weight,
 	double z_coord_weight)
 {
@@ -84,7 +86,7 @@ ImageGraph::ImageGraph(cv::Mat &image,
 	this->z_scale_factor = z_coord_weight;
 	
 	//double(*weight_func)(Pixel *, Pixel *);
-	if (flag_metrics == 1)
+	if (edgeweight_metrics == 1)
 		weight_function = &metrics::calc_weight_dist;
 	else
 	{
@@ -212,7 +214,9 @@ ImageGraph::~ImageGraph()
 	//delete edges;
 	//delete segment_foreach_pixel;
 	//delete pixels;
-	delete disjoint_set;
+	delete[] __x;
+	delete[] __y;
+	delete[] disjoint_set;
 	//disjointset::release_mem(&disjoint_set_struct);
 }
 
@@ -240,15 +244,17 @@ int ImageGraph::model_and_cluster(int target_num_segments, const std::vector<flo
 {
 	clock_t t;
 
+	SimpleGenerator::Set();
+
     auto iter = params.begin();
     int ransac_n = *iter++;
     int ransac_k = *iter++;
     float ransac_thres = *iter++;
     int ransac_d = *iter++;
     std::vector<float> ransacparams({ (float)ransac_n, (float)ransac_k, ransac_thres, (float)ransac_d });
-    int estimator_regularization = *iter++;
+    float estimator_regularization = *iter++;
     int estimator_metrics = *iter++;
-    std::vector<int> estimatorparams({ estimator_regularization, estimator_metrics });
+    std::vector<float> estimatorparams({ estimator_regularization, (float)estimator_metrics });
 
 	t = clock();
     *totalerror = run_ransac(ransacparams, estimatorparams);
@@ -256,23 +262,24 @@ int ImageGraph::model_and_cluster(int target_num_segments, const std::vector<flo
     printf("TIME (RANSAC. Calculating models          ) (ms): %8.2f\n", (double)t * 1000. / CLOCKS_PER_SEC);
     
     int distancemetrics = *iter++;
+	float distancemetrics_weight_normal = *iter++;
+	float distancemetrics_weight_depth = *iter++;
     int clustering_n1 = *iter++;
     int clustering_n2 = *iter++;
-    std::vector<int> clusteringparams({ target_num_segments, distancemetrics,
-        clustering_n1, clustering_n2 });
+    std::vector<float> clusteringparams({ (float)target_num_segments, (float)distancemetrics,
+		distancemetrics_weight_normal, distancemetrics_weight_depth, (float)clustering_n1, (float)clustering_n2 });
     
+	int num_segments_before = segment_count;
     t = clock();
-    int num_mergers = run_lance_williams_algorithm(clusteringparams);
+    int num_segments_after = run_lance_williams_algorithm(clusteringparams);
     t = clock() - t;
     printf("TIME (RANSAC. Hierarchical clustering     ) (ms): %8.2f\n", (double)t * 1000. / CLOCKS_PER_SEC);
 
-    return num_mergers;
+    return num_segments_before - num_segments_after;
 }
 
-float ImageGraph::run_ransac(std::vector<float> &ransacparams, std::vector<int> &estimatorparams)
-{   
-    model::SimpleGenerator::Set();
-    
+float ImageGraph::run_ransac(std::vector<float> &ransacparams, std::vector<float> &estimatorparams)
+{       
     float totalerror = 0.0f;
 
     auto itransac = ransacparams.begin();
@@ -282,7 +289,7 @@ float ImageGraph::run_ransac(std::vector<float> &ransacparams, std::vector<int> 
     int ransac_d = *itransac++;
 
     auto itestim = estimatorparams.begin();
-    int estim_regularization = *itestim++;
+    float estim_regularization = *itestim++;
     int estim_metrics = *itestim++;
 
     std::vector<cv::Vec3f> sample;
@@ -296,9 +303,9 @@ float ImageGraph::run_ransac(std::vector<float> &ransacparams, std::vector<int> 
 
         model::GradientDescent GD;
 
-        for (auto it = partition_content[t].begin(); it != partition_content[t].end(); it++)
-            //sample[w++] = cv::Vec3f((*it)[0], (*it)[1], dep.at<float>((*it)[0], (*it)[1]));
-            sample.push_back(cv::Vec3f((*it)[0], (*it)[1], dep.at<float>((*it)[0], (*it)[1])));
+		for (auto it = partition_content[t].begin(); it != partition_content[t].end(); it++)
+			sample.emplace_back( (*it)[0], (*it)[1], dep.at<float>((*it)[0], (*it)[1]) );
+			//sample[w++] = cv::Vec3f((*it)[0], (*it)[1], dep.at<float>((*it)[0], (*it)[1]));
 
         GD.SetParams(estim_regularization, estim_metrics);
 
@@ -309,16 +316,16 @@ float ImageGraph::run_ransac(std::vector<float> &ransacparams, std::vector<int> 
 
         sample.clear();
     }
-    return 0;
+    return totalerror;
 }
 
-int ImageGraph::run_lance_williams_algorithm(std::vector<int> &params)
+int ImageGraph::run_lance_williams_algorithm(std::vector<float> &params)
 {
     //std::set<clustering::Distance, clustering::compare_distance> pairwise_dist;
 
     auto iter = params.begin();
 
-    std::vector<clustering::Distance> pairwise_dist(segment_count * (segment_count - 1) / 2);
+    //std::vector<clustering::Distance> pairwise_dist(segment_count * (segment_count - 1) / 2);
     //cv::Mat matrix_dist = cv::Mat::zeros(cv::Size(segment_count, segment_count), CV_32FC1);
     // similarity
     
@@ -327,14 +334,12 @@ int ImageGraph::run_lance_williams_algorithm(std::vector<int> &params)
     
     int targetnumsegments = *iter++;
     int similaritymetrics = *iter++;
-    int n1 = *iter++;
-    int n2 = *iter++;
         
     std::vector<float> funcparams;
     switch (similaritymetrics)
     {
-    case clustering::L2:
-        sim_function = &clustering::compute_distL2;
+	case metrics::L2:
+        sim_function = &metrics::compute_distL2;
         funcparams.push_back(*iter++);
         funcparams.push_back(*iter++);
         break;
@@ -342,12 +347,10 @@ int ImageGraph::run_lance_williams_algorithm(std::vector<int> &params)
         break;
     }
 
-    std::vector<std::vector<int>> &P_delta = partition;
+	int n1 = *iter++;
+	int n2 = *iter++;
 
-    if (segment_count > n1)
-    {
-        model::SimpleGenerator::Get()
-    }
+    //std::vector<std::vector<int>> &P_delta = partition;
 
     cv::Mat distances(cv::Size(segment_count, segment_count), CV_32FC1);
     float d;
@@ -360,11 +363,28 @@ int ImageGraph::run_lance_williams_algorithm(std::vector<int> &params)
             distances.at<float>(w, t) = d;
         }
 
-    int numsegments = segment_count;
+	float delta/* = select_delta_param(distances, n1, n2)*/;
+	std::vector<std::pair<int, int>> Pdelta;
+	//make_p_delta(distances, Pdelta, delta);
+
+	int numsegments = segment_count;
+	int imin;
     while (numsegments > targetnumsegments)
     {
+		if (Pdelta.size() == 0)
+		{
+			delta = select_delta_param(distances, n1, n2);
+			make_p_delta(distances, Pdelta, delta);
+		}
+		d = find_nearest_clusters(distances, Pdelta, &imin);
+		
+		update_clusters(distances, Pdelta, delta, imin, d);
 
+		numsegments--;
     }
+	segment_count = numsegments;
+
+	return segment_count;
 
     //int c = 0;
     //float d;
@@ -389,23 +409,23 @@ int ImageGraph::run_lance_williams_algorithm(std::vector<int> &params)
 
     // clustering
     
-    const float arbitrary_negative_const = -3.0f;
-    std::vector<int> cluster_count(segment_count, 1);
-    auto it = pairwise_dist.begin();
-    clustering::Distance temp;
-    //int _id, _ix, _iy;
-    //float _dist;
-    int first, second;
-    while (it != pairwise_dist.end() || pairwise_dist.size() > target_num_segments)
-    {
-        temp = *it;
-        it = pairwise_dist.erase(it);
+    //const float arbitrary_negative_const = -3.0f;
+    //std::vector<int> cluster_count(segment_count, 1);
+    //auto it = pairwise_dist.begin();
+    //clustering::Distance temp;
+    ////int _id, _ix, _iy;
+    ////float _dist;
+    //int first, second;
+    //while (it != pairwise_dist.end() || pairwise_dist.size() > target_num_segments)
+    //{
+    //    temp = *it;
+    //    it = pairwise_dist.erase(it);
 
-        first = std::min(temp.ix, temp.iy);
-        second = std::max(temp.ix, temp.iy);
+    //    first = std::min(temp.ix, temp.iy);
+    //    second = std::max(temp.ix, temp.iy);
 
-        cluster_count[first]++;
-        cluster_count[second] = arbitrary_negative_const;
+    //    cluster_count[first]++;
+    //    cluster_count[second] = arbitrary_negative_const;
 
 
 
@@ -422,9 +442,149 @@ int ImageGraph::run_lance_williams_algorithm(std::vector<int> &params)
         //disjoint_set[partition[temp.iy]];
 
 
-    }
+    //}
     
-    return 0;
+    
+}
+
+float ImageGraph::select_delta_param(cv::Mat &distmatrix, int n1, int n2)
+{
+	double maxdist = (double)UINT64_MAX, min;
+	if (segment_count <= n1)
+	{
+		cv::minMaxIdx(distmatrix, &min, &maxdist);
+		return (float)maxdist;
+	}
+	SimpleDistribution distrib(0, segment_count - 1);
+	int c = 0;
+	int temp;
+	std::vector<int> randoms;
+	randoms.reserve(n2);
+	std::vector<int> randoms2(n2);
+	while (c < n2)
+	{
+		temp = distrib.Get()(SimpleGenerator::Get());
+		if (std::find(randoms.begin(), randoms.end(), temp) == randoms.end())
+		{
+			randoms.push_back(temp);
+			c++;
+			randoms2[c % n2] = temp;
+		}
+	}
+	for (int v = 0; v < n2; v++)
+		if (distmatrix.at<float>(randoms[v], randoms2[v]) < maxdist)
+			maxdist = distmatrix.at<float>(randoms[v], randoms2[v]);
+	return (float)maxdist;
+}
+
+void ImageGraph::make_p_delta(cv::Mat &distmatrix, std::vector<std::pair<int, int>>& p, float delta)
+{
+	for (int u = 0; u < segment_count - 1; u++)
+		for (int w = u + 1; w < segment_count; w++)
+			if (distmatrix.at<float>(u, w) <= delta)
+				p.emplace_back(u, w);
+}
+
+float ImageGraph::find_nearest_clusters(cv::Mat &distmatrix, std::vector<std::pair<int, int>>&Pdelta, int *imin)
+{
+	*imin = 0;
+	for (int w = 1; w < Pdelta.size(); w++)
+		if (distmatrix.at<float>(Pdelta[*imin].first, Pdelta[*imin].second) > distmatrix.at<float>(Pdelta[w].first, Pdelta[w].second))
+			*imin = w;
+	return distmatrix.at<float>(Pdelta[*imin].first, Pdelta[*imin].second);
+}
+
+void ImageGraph::update_clusters(cv::Mat &distmatrix, std::vector<std::pair<int, int>>&Pdelta, float delta, int iUV, float distUV)
+{
+	int rnum = Pdelta[iUV].first;
+	int cnum = Pdelta[iUV].second;
+
+	update_distance_matrix(distmatrix, distUV, rnum, cnum);
+	update_Pdelta(distmatrix, Pdelta, delta, rnum, cnum);
+	update_partition(rnum, cnum);
+	remove_previous(distmatrix, Pdelta, iUV, rnum, cnum);
+}
+
+void ImageGraph::update_distance_matrix(cv::Mat &M, float distUV, int r, int c)
+{
+	float d;
+	int sizeU = partition[r].size();
+	int sizeV = partition[c].size();
+	for (int v = 0; v < c; v++)
+	{
+		d = metrics::lance_williams_ward(
+			distUV,
+			M.at<float>(r, v),
+			M.at<float>(c, v),
+			((float)partition[v].size() + sizeU) / (partition[v].size() + sizeU + sizeV),
+			((float)partition[v].size() + sizeV) / (partition[v].size() + sizeU + sizeV),
+			-(float)partition[v].size() / (partition[v].size() + sizeU + sizeV),
+			0.0f);
+		M.at<float>(r, v) = d;
+		M.at<float>(v, r) = d;
+	}
+	for (int v = c + 1; v < M.cols; v++)
+	{
+		d = metrics::lance_williams_ward(
+			distUV,
+			M.at<float>(r, v),
+			M.at<float>(c, v),
+			((float)partition[v].size() + sizeU) / (partition[v].size() + sizeU + sizeV),
+			((float)partition[v].size() + sizeV) / (partition[v].size() + sizeU + sizeV),
+			-(float)partition[v].size() / (partition[v].size() + sizeU + sizeV),
+			0.0f);
+		M.at<float>(r, v) = d;
+		M.at<float>(v, r) = d;
+	}
+}
+
+void ImageGraph::update_Pdelta(cv::Mat &distmatrix, std::vector<std::pair<int, int>>&Pdelta, float delta, int r, int c)
+{
+	for (int w = 0; w < std::min(r, c); w++)
+		if (distmatrix.at<float>(r, w) <= delta)
+			Pdelta.emplace_back(w, r);
+
+	for (int w = std::min(r, c) + 1; w < std::max(r, c); w++)
+		if (distmatrix.at<float>(r, w) <= delta)
+			Pdelta.emplace_back(std::min(r, w), std::max(r, w));
+
+	for (int w = std::max(r, c) + 1; w < distmatrix.cols; w++)
+		if (distmatrix.at<float>(r, w) <= delta)
+			Pdelta.emplace_back(r, w);
+}
+
+void ImageGraph::update_partition(int U, int V)
+{
+	std::copy(partition[V].begin(), partition[V].end(), std::back_inserter(partition[U]));
+	partition[V].clear();
+	
+	// update average depth
+
+	partition_content[U].splice(partition_content[U].end(), partition_content[V]);
+}
+
+void ImageGraph::remove_previous(cv::Mat &distmatrix, std::vector<std::pair<int, int>>&Pdelta, int pos, int r, int c)
+{
+	cv::Mat mask = cv::Mat::ones(distmatrix.size(), CV_8UC1);
+	cv::Mat zerovector = cv::Mat::zeros(1, distmatrix.cols, CV_8UC1);
+	zerovector.copyTo(mask.row(r));
+	zerovector = cv::Mat::zeros(distmatrix.rows, 1, CV_8UC1);
+	zerovector.copyTo(mask.col(c));
+	distmatrix.copyTo(distmatrix, mask);
+
+	Pdelta.erase(std::remove(Pdelta.begin() + pos, Pdelta.begin() + pos + 1, Pdelta[pos]), Pdelta.end());
+
+	partition.erase(
+		std::remove(partition.begin() + c, partition.begin() + c + 1, partition[c]),
+		partition.end());
+	partition_content.erase(
+		std::remove(partition_content.begin() + c, partition_content.begin() + c + 1, partition_content[c]),
+		partition_content.end());
+
+	/*cv::Rect upleft(0, 0, c, r),
+		upright(c + 1, 0, distmatrix.cols - c - 1, r),
+		botleft(0, r + 1, c, distmatrix.rows - r - 1),
+		botright(c + 1, r + 1, distmatrix.cols - c - 1, distmatrix.rows - r - 1);*/
 }
 
 void ImageGraph::Refine(
@@ -434,11 +594,13 @@ void ImageGraph::Refine(
 	const std::vector<float> &clustering_params,
 	int *pixels_under_thres,
 	int *seg_under_thres,
-	int *num_mergers)
+	int *num_mergers,
+	float *totalerror)
 {
 	*pixels_under_thres = 0;
 	*seg_under_thres = 0;
 	*num_mergers = 0;
+	*totalerror = 0.0f;
 	
 	clock_t t;
 
@@ -497,7 +659,7 @@ void ImageGraph::Refine(
 		partition_plane = new cv::Vec4f[segment_count];
 		if (target_num_segments > 0)
 		{
-			*num_mergers = model_and_cluster(target_num_segments, clustering_params);
+			*num_mergers = model_and_cluster(target_num_segments, clustering_params, totalerror);
 		}
 		delete[] partition_plane;
 		delete[] partition_vnormal;
@@ -509,36 +671,40 @@ void ImageGraph::Refine(
 
 void ImageGraph::PlotSegmentation(int waittime, const char *windowname)
 {
-	cv::Mat segmentation = cv::Mat::zeros(segment_labels.size(), CV_8UC3);
+	//cv::Mat segmentation = cv::Mat::zeros(segment_labels.size(), CV_8UC3);
+	
+	clock_t t = clock();
+
+	cv::Mat segmentation(img.size(), CV_8UC3, 0);
 	int a = 120, b = 256;
+	std::vector<cv::Vec3b> colors;
+	colors.reserve(segment_count);
 
-	for (auto iter = partition.begin(); iter != partition.end(); iter++)
+	auto iter_segment = partition_content.begin();
+	for (int w = 0; w < segment_count; w++)
 	{
-		(*iter)->color = cv::Vec3b(color_rng.uniform(a, b), color_rng.uniform(a, b), color_rng.uniform(a, b));
-
-		//(*iter)->mdepth /= (*iter)->numelements;
-
-		for (auto iterlist = (*iter)->segment.begin(); iterlist != (*iter)->segment.end(); iterlist++)
-		{
-			segment_labels.at<int>((int)(*iterlist)->pixcoords[0], (int)(*iterlist)->pixcoords[1]) = (*iter)->label;
-			segmentation.at<cv::Vec3b>((int)(*iterlist)->pixcoords[0], (int)(*iterlist)->pixcoords[1]) = (*iter)->color;
-		}
+		colors.emplace_back(color_rng.uniform(a, b), color_rng.uniform(a, b), color_rng.uniform(a, b));
+		for (auto it = (*iter_segment).begin(); it != (*iter_segment).end(); it++)
+			segmentation.at<cv::Vec3b>(*it) = colors[w];
 	}
+
+	t = clock() - t;
+	printf("TIME (Making segment labels               ) (ms): %8.2f\n", (double)t * 1000. / CLOCKS_PER_SEC);
 
 	cv::namedWindow(windowname, cv::WINDOW_AUTOSIZE);
 	cv::imshow(windowname, segmentation);
 	cv::waitKey(waittime);
 }
 
-void ImageGraph::PrintSegmentationInfo(const char *fname) const
-{
-	FILE *f = fopen(fname, "w");
-	for (auto iter = partition.begin(); iter != partition.end(); iter++)
-	{
-		fprintf(f, "segment: %7i, size: %7i\n", (*iter)->label, (*iter)->numelements);
-	}
-	fclose(f);
-}
+//void ImageGraph::PrintSegmentationInfo(const char *fname) const
+//{
+//	FILE *f = fopen(fname, "w");
+//	for (auto iter = partition.begin(); iter != partition.end(); iter++)
+//	{
+//		fprintf(f, "segment: %7i, size: %7i\n", (*iter)->label, (*iter)->numelements);
+//	}
+//	fclose(f);
+//}
 
 int ImageGraph::SegmentationKruskal(double k)
 {
@@ -597,4 +763,41 @@ int ImageGraph::SegmentationKruskal(double k)
 	printf("TIME (Forming segments                    ) (ms): %8.2f\n", (double)t * 1000. / CLOCKS_PER_SEC);
 
 	return segment_count_src;
+}
+
+
+inline double metrics::calc_weight_dist(
+#if USE_COLOR == 1
+	cv::Vec3f &p1, cv::Vec3f &p2,
+#else
+	float p1, float p2,
+#endif
+	float depth1, float depth2,
+	int x1, int y1, int x2, int y2,
+	double xy_sc, double z_sc)
+{
+	float r;
+#if USE_COLOR == 1
+	cv::Vec3f v = p1 - p2;
+	r = v.dot(v);
+#else
+	r = (p1 - p2) * (p1 - p2);
+#endif
+	int xdelta = x1 - x2, ydelta = y1 - y2;
+	float zdelta = depth1 - depth2;
+	return cv::sqrt(r + xy_sc * (xdelta * xdelta + ydelta * ydelta) +
+		z_sc * zdelta * zdelta);
+}
+
+inline float metrics::lance_williams_ward(float rUV, float rUS, float rVS, float au, float av, float b, float g)
+{
+	return au * rUS + av * rVS + b * rUV + g * std::abs(rUS - rVS);
+}
+
+inline float metrics::compute_distL2(cv::Vec4f &plane1, cv::Vec4f &plane2, std::vector<float> &params)
+{
+	float w_normal = params[0], w_depth = params[1];
+	cv::Vec3f n1(plane1[0], plane1[1], plane1[2]);
+	cv::Vec3f n2(plane2[0], plane2[1], plane2[2]);
+	return w_normal * (cv::norm(n1) * cv::norm(n2) - std::abs(n1.dot(n2))) + w_depth * std::abs(plane1[3] - plane2[3]);
 }

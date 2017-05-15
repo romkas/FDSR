@@ -1,4 +1,5 @@
 #include "modelFitting.h"
+#include "random.h"
 #include <numeric>
 #include <iterator>
 
@@ -165,110 +166,110 @@ bool model::checkFit(const cv::Vec3f &p, const cv::Vec4f &plane, float thres)
 //	return defaultestimator;
 //}
 
-model::Plane::Plane()
-{
-}
-
-model::Plane::~Plane()
-{
-}
-
-float model::Plane::Fit(cv::Vec3f * p) const
-{
-	return cv::abs(p->operator[](0) + p->operator[](1) * coords[1] +
-		p->operator[](2) * coords[2] + coords[3]);
-}
-
-float model::Plane::Fit(cv::Vec3f * p, int flag_temp) const
-{
-	if (flag_temp)
-		return cv::abs(p->operator[](0) + p->operator[](1) * coords_temp[1] +
-			p->operator[](2) * coords_temp[2] + coords_temp[3]);
-	else
-		return cv::abs(p->operator[](0) + p->operator[](1) * coords[1] +
-			p->operator[](2) * coords[2] + coords[3]);
-}
-
-bool model::Plane::checkFit(cv::Vec3f * p, float thres) const
-{
-	return cv::abs(p->operator[](0) + p->operator[](1) * coords[1] +
-		p->operator[](2) * coords[2] + coords[3]) < thres;
-}
-
-//float model::Plane::Train(std::vector<cv::Vec3f*>&)
+//model::Plane::Plane()
 //{
-//    return 0.0f;
 //}
-
-bool model::Plane::checkFit(cv::Vec3f * p, float thres, int flag_temp) const
-{
-	if (flag_temp)
-		return cv::abs(p->operator[](0) + p->operator[](1) * coords_temp[1] +
-			p->operator[](2) * coords_temp[2] + coords_temp[3]);
-	else
-		return cv::abs(p->operator[](0) + p->operator[](1) * coords[1] +
-			p->operator[](2) * coords[2] + coords[3]) < thres;
-}
-
-void model::Plane::setNormal(cv::Vec3f & nvec)
-{
-	this->vnormal = nvec;
-}
-
-cv::Vec3f & model::Plane::getNormal()
-{
-	return this->vnormal;
-}
-
-const cv::Vec3f & model::Plane::getNormal() const
-{
-	return this->vnormal;
-}
-
-void model::Plane::setCoords(cv::Vec4f & coordvec, int flag_temp)
-{
-	if (flag_temp)
-		this->coords_temp = coordvec;
-	else
-		this->coords = coordvec;
-}
-
-void model::Plane::setCoords(float coord, int pos, int flag_temp)
-{
-	if (flag_temp)
-		this->coords_temp[pos] = coord;
-	else
-		this->coords[pos] = coord;
-}
-
-void model::Plane::Validate()
-{
-	coords = coords_temp;
-}
-
-cv::Vec4f & model::Plane::getCoords(int flag_temp)
-{
-	if (flag_temp)
-		return this->coords_temp;
-	else
-		return this->coords;
-}
-
-const cv::Vec4f & model::Plane::getCoords(int flag_temp) const
-{
-	if (flag_temp)
-		return this->coords_temp;
-	else
-		return this->coords;
-}
-
-float model::Plane::getCoords(int pos, int flag_temp) const
-{
-	if (flag_temp)
-		return this->coords_temp[pos];
-	else
-		return this->coords[pos];
-}
+//
+//model::Plane::~Plane()
+//{
+//}
+//
+//float model::Plane::Fit(cv::Vec3f * p) const
+//{
+//	return cv::abs(p->operator[](0) + p->operator[](1) * coords[1] +
+//		p->operator[](2) * coords[2] + coords[3]);
+//}
+//
+//float model::Plane::Fit(cv::Vec3f * p, int flag_temp) const
+//{
+//	if (flag_temp)
+//		return cv::abs(p->operator[](0) + p->operator[](1) * coords_temp[1] +
+//			p->operator[](2) * coords_temp[2] + coords_temp[3]);
+//	else
+//		return cv::abs(p->operator[](0) + p->operator[](1) * coords[1] +
+//			p->operator[](2) * coords[2] + coords[3]);
+//}
+//
+//bool model::Plane::checkFit(cv::Vec3f * p, float thres) const
+//{
+//	return cv::abs(p->operator[](0) + p->operator[](1) * coords[1] +
+//		p->operator[](2) * coords[2] + coords[3]) < thres;
+//}
+//
+////float model::Plane::Train(std::vector<cv::Vec3f*>&)
+////{
+////    return 0.0f;
+////}
+//
+//bool model::Plane::checkFit(cv::Vec3f * p, float thres, int flag_temp) const
+//{
+//	if (flag_temp)
+//		return cv::abs(p->operator[](0) + p->operator[](1) * coords_temp[1] +
+//			p->operator[](2) * coords_temp[2] + coords_temp[3]);
+//	else
+//		return cv::abs(p->operator[](0) + p->operator[](1) * coords[1] +
+//			p->operator[](2) * coords[2] + coords[3]) < thres;
+//}
+//
+//void model::Plane::setNormal(cv::Vec3f & nvec)
+//{
+//	this->vnormal = nvec;
+//}
+//
+//cv::Vec3f & model::Plane::getNormal()
+//{
+//	return this->vnormal;
+//}
+//
+//const cv::Vec3f & model::Plane::getNormal() const
+//{
+//	return this->vnormal;
+//}
+//
+//void model::Plane::setCoords(cv::Vec4f & coordvec, int flag_temp)
+//{
+//	if (flag_temp)
+//		this->coords_temp = coordvec;
+//	else
+//		this->coords = coordvec;
+//}
+//
+//void model::Plane::setCoords(float coord, int pos, int flag_temp)
+//{
+//	if (flag_temp)
+//		this->coords_temp[pos] = coord;
+//	else
+//		this->coords[pos] = coord;
+//}
+//
+//void model::Plane::Validate()
+//{
+//	coords = coords_temp;
+//}
+//
+//cv::Vec4f & model::Plane::getCoords(int flag_temp)
+//{
+//	if (flag_temp)
+//		return this->coords_temp;
+//	else
+//		return this->coords;
+//}
+//
+//const cv::Vec4f & model::Plane::getCoords(int flag_temp) const
+//{
+//	if (flag_temp)
+//		return this->coords_temp;
+//	else
+//		return this->coords;
+//}
+//
+//float model::Plane::getCoords(int pos, int flag_temp) const
+//{
+//	if (flag_temp)
+//		return this->coords_temp[pos];
+//	else
+//		return this->coords[pos];
+//}
 
 //void model::Plane::setSubsample(int start, int end)
 //{
@@ -369,3 +370,56 @@ float model::GradientDescent::Apply()
 }
 
 //void model::GradientDescent::
+
+float model::RANSAC(std::vector<cv::Vec3f>& sample, int param_n, int param_k, float param_thres, int param_d,
+	GradientDescent* GD, cv::Vec4f& bestplane)
+{
+	std::vector<cv::Vec3f> also_inliers;
+	//int also_inliers_size;
+
+	float error = -1.0f;
+	float besterror = (float)UINT64_MAX;
+	//cv::Vec4f bestplane;
+
+	if (sample.size() < param_n)
+		param_n = sample.size();
+	if (param_n < 3)
+		return error;
+
+	for (int t = 0; t < param_k; t++)
+	{
+		std::shuffle(sample.begin(), sample.end(), SimpleGenerator::Get());
+		GD->SetBoundary(sample, 0, param_n);
+		GD->Apply();
+
+		//compute(data.begin(), data.begin() + param_n, M, E);
+
+		auto start = sample.begin();
+		std::advance(start, param_n);
+		also_inliers.resize(sample.size() - param_n);
+		//also_inliers_size = sample.size() - param_n;
+
+		for (auto iter = start; iter != sample.end(); iter++)
+		{
+			if (checkFit(*iter, GD->getEstimate(), param_thres))
+				also_inliers.push_back(*iter);
+		}
+
+		if (also_inliers.size() >= param_d)
+		{
+			also_inliers.insert(also_inliers.end(), sample.begin(), sample.begin() + param_n);
+			GD->SetBoundary(also_inliers, 0, also_inliers.size());
+			error = GD->Apply();
+			if (error < besterror)
+			{
+				besterror = error;
+				bestplane = GD->getEstimate();
+			}
+		}
+
+		also_inliers.clear();
+	}
+	//M->setNormal(cv::normalize(cv::Vec3f(M->getCoords(0, 0), M->getCoords(1, 0), M->getCoords(2, 0))));
+
+	return besterror;
+}

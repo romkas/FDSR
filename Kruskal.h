@@ -51,7 +51,7 @@ class ImageGraph
 	
 	int *partition_src;
 	//std::vector<int> partition;
-	
+
     std::vector<std::vector<int>> partition;
     std::vector< std::list<cv::Vec2i> > partition_content_src;
 	std::vector< std::list<cv::Vec2i> > partition_content;
@@ -100,11 +100,18 @@ class ImageGraph
 
 	int model_and_cluster(int, const std::vector<float>&, float*);
 
-    float run_ransac(std::vector<float>&, std::vector<int>&);
+    float run_ransac(std::vector<float>&, std::vector<float>&);
     
-    int run_lance_williams_algorithm(std::vector<int>&);
+    int run_lance_williams_algorithm(std::vector<float>&);
+	float select_delta_param(cv::Mat&, int, int);
+	void make_p_delta(cv::Mat&, std::vector<std::pair<int, int>>&, float);
+	float find_nearest_clusters(cv::Mat&, std::vector<std::pair<int, int>>&, int*);
+	void update_clusters(cv::Mat&, std::vector<std::pair<int, int>>&, float, int, float);
+	void update_distance_matrix(cv::Mat&, float, int, int);
+	void update_Pdelta(cv::Mat&, std::vector<std::pair<int, int>>&, float, int, int);
+	void update_partition(int, int);
+	void remove_previous(cv::Mat&, std::vector<std::pair<int, int>>&, int, int, int);
 
-    void find_nearest_clusters(cv::Vec4f&, cv::Vec4f&)
 public:
 	ImageGraph() {}
 	
@@ -128,11 +135,12 @@ public:
 		const std::vector<float>& clustering_params,
 		int *pixels_under_thres,
 		int *seg_under_thres,
-		int *num_mergers);
+		int *num_mergers,
+		float *totalerror);
 	
 	void PlotSegmentation(int, const char*);
 	
-	void PrintSegmentationInfo(const char*) const;
+	//void PrintSegmentationInfo(const char*) const;
 
 	enum ClusteringMode
 	{
@@ -151,7 +159,7 @@ namespace metrics
 	
 	//double calc_weight_dist(dtypes::Pixel*, dtypes::Pixel*, double xy_sc = 1.0, double z_sc = 1.0);
 	
-	double metrics::calc_weight_dist(
+	inline double calc_weight_dist(
 #if USE_COLOR == 1
 		cv::Vec3f&, cv::Vec3f&,
 #else
@@ -165,4 +173,14 @@ namespace metrics
 	//double calc_weight_
 	// other weight functions
 	//------------------------------------------
+
+	inline float lance_williams_ward(float, float, float, float, float, float, float);
+
+	inline float compute_distL2(cv::Vec4f&, cv::Vec4f&, std::vector<float>&);
+
+	enum MetricsType
+	{
+		L2 = 0,
+
+	};
 }

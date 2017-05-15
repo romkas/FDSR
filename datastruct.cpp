@@ -125,7 +125,3 @@ bool dtypes::HashTable::Delete(unsigned int hashvalue)
 	return true;
 }
 
-int dtypes::HashTable::getNumKeys() const
-{
-	return this->num_keys;
-}

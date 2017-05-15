@@ -148,10 +148,10 @@ void RunIteration(
 	cv::Mat &img,
 	cv::Mat &depth,
 	int param_pixel_vicinity,
-	int param_metrics_flag,
-	double param_xy_coord_weight,
-	double param_z_coord_weight,
-	double param_k,
+	int param_edgeweight_metrics,
+	float param_xy_coord_weight,
+	float param_z_coord_weight,
+	float param_k,
 	int param_min_segment_size,
 	int param_target_num_segments,
 	int clustering_mode,
@@ -162,12 +162,13 @@ void RunIteration(
 {
 	int n_segments;
 	int pixels_under_thres, seg_under_thres, num_mergers;
+	float totalerror;
 	printf("==================================\n");
 	ImageGraph G = ImageGraph(
 		img,
 		depth,
 		param_pixel_vicinity,
-		param_metrics_flag,
+		param_edgeweight_metrics,
 		param_xy_coord_weight,
 		param_z_coord_weight);
 	n_segments = G.SegmentationKruskal(param_k);
@@ -176,11 +177,12 @@ void RunIteration(
 		param_target_num_segments,
 		clustering_mode,
 		clustering_params,
-		&pixels_under_thres, &seg_under_thres, &num_mergers);
+		&pixels_under_thres, &seg_under_thres, &num_mergers, &totalerror);
 	G.PlotSegmentation(waitkey, windowname);
 	printf("Found segments:           %7i\n", n_segments);
 	printf("Pixels under threshold:   %7i\nSegments under threshold: %7i\nNumber of mergers:        %7i\n", pixels_under_thres, seg_under_thres, num_mergers);
-	G.PrintSegmentationInfo(logfile);
+	printf("RANSAC total error:       %7.2f\n", totalerror);
+	//G.PrintSegmentationInfo(logfile);
 	printf("==================================\n");
 }
 
@@ -190,16 +192,47 @@ int main(int argc, char **argv)
 	{
 		int c = 1;
 		int param_pixel_vicinity = std::atoi(argv[c++]);
-		int param_metrics_flag = std::atoi(argv[c++]);
-		double param_xy_coord_weight = std::atof(argv[c++]);
-		double param_k = std::atof(argv[c++]);
+		int param_edgeweight_metrics = std::atoi(argv[c++]);
+
+		float param_xy_coord_weight = std::atof(argv[c++]);
+		float param_k = std::atof(argv[c++]);
 		int param_min_segment_size = std::atoi(argv[c++]);
 		int param_target_num_segments = std::atoi(argv[c++]);
+
+		int param_ransac_n = std::atoi(argv[c++]);
+		int param_ransac_d = std::atoi(argv[c++]);
+		float param_ransac_thres = std::atof(argv[c++]);
+		int param_ransac_k = (int)(std::log(1 - 0.7f) / std::log(1 - std::pow(0.8f, param_ransac_n)) +
+			std::sqrt(1 - std::pow(0.8f, param_ransac_n)) / std::pow(0.8f, param_ransac_n) + 1);
+		float param_ransacestim_regularization = std::atof(argv[c++]);
+		int param_ransacestim_metrics = std::atoi(argv[c++]);
+
+		int param_modeldistance_metrics = std::atoi(argv[c++]);
+		float param_modeldistance_weightnormal = std::atof(argv[c++]);
+		float param_modeldistance_weightdepth = std::atof(argv[c++]);
+		int param_clustering_n1 = std::atoi(argv[c++]);
+		int param_clustering_n2 = std::atoi(argv[c++]);
+
+		std::vector<float> clustering_params{
+			(float)param_ransac_n,
+			(float)param_ransac_k,
+			param_ransac_thres,
+			(float)param_ransac_d,
+			param_ransacestim_regularization,
+			(float)param_ransacestim_metrics,
+			(float)param_modeldistance_metrics,
+			param_modeldistance_weightnormal,
+			param_modeldistance_weightdepth,
+			(float)param_clustering_n1,
+			(float)param_clustering_n2
+		};
+
         char logfilename[FILENAME_MAX];
         std::strcpy(logfilename, argv[c++]);
 		//int param_segment_size_vis = std::atoi(argv[c++]);
 		//bool param_color = (bool)std::atoi(argv[c++]);
-		double param_z_coord_weight;
+		
+		float param_z_coord_weight;
 
 		cv::Mat img, img_float, depth;
 #if USE_COLOR == 1
@@ -310,17 +343,9 @@ int main(int argc, char **argv)
 		//		"segmentation-blur");
 		//}
 
-		int ransac_n = 6;
-		int ransac_d = 1;
-		float ransac_thres = 0.1f;
-		int ransac_k = (int)(cv::log(1 - 0.7f) / cv::log(1 - cv::pow(0.8f, ransac_n)) +
-			cv::sqrt(1 - cv::pow(0.8f, ransac_n)) / cv::pow(0.8f, ransac_n) + 1);
-		int model_type = model::ModelType::PLANE;
-		int estimator_type = model::EstimatorType::GRADESCENT;
-		int metrics = model::RegularizationType::L2;
+		
 
-		std::vector<float> cluster_params{ (float)ransac_n, (float)ransac_k, ransac_thres, (float)ransac_d,
-			(float)model_type, (float)estimator_type, 0.01f, (float)ransac_n, (float)metrics };
+		
 
 		if (param_depthdata)
 		{
@@ -357,14 +382,14 @@ int main(int argc, char **argv)
 				img_float,
 				depth0,
 				param_pixel_vicinity,
-				param_metrics_flag,
+				param_edgeweight_metrics,
 				param_xy_coord_weight,
 				param_z_coord_weight,
 				param_k,
 				param_min_segment_size,
 				param_target_num_segments,
-				ImageGraph::REMOVE,
-				cluster_params,
+				ImageGraph::BOTH,
+				clustering_params,
 				100,
 				"segmentation-blur",
                 logfilename);
@@ -386,14 +411,14 @@ int main(int argc, char **argv)
 				img_float,
 				depth,
 				param_pixel_vicinity,
-				param_metrics_flag,
+				param_edgeweight_metrics,
 				param_xy_coord_weight,
 				param_z_coord_weight,
 				param_k,
 				param_min_segment_size,
 				param_target_num_segments,
-				ImageGraph::REMOVE,
-				cluster_params,
+				ImageGraph::BOTH,
+				clustering_params,
 				100,
 				"segmentation-blur-laplace",
                 logfilename);
