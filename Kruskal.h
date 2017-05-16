@@ -3,7 +3,8 @@
 #include "datastruct.h"
 #include <set>
 #include <utility>
-
+#include <vector>
+#include <list>
 
 class ImageGraph
 {	    
@@ -62,6 +63,16 @@ class ImageGraph
 	cv::Vec4f *partition_plane;
 
 	int segment_count_src, segment_count;
+
+#if USE_LAB == 1 && USE_COLOR == 1
+    cv::Mat rgb2xyz_convers_coef;
+    cv::Vec3f whitepoint_xyz;
+    std::vector<cv::Vec3f> lab_pixels;
+    void set_rgb2xyz_convers_coef();
+    void rgb2xyz(cv::Vec3f&, cv::Vec3f&);
+    void rgb2lab(cv::Vec3f&, cv::Vec3f&);
+    float _f(float);
+#endif
 
 	//double(*weight_function)(dtypes::Pixel*, dtypes::Pixel*, double, double);
 	

@@ -383,6 +383,9 @@ int main(int argc, char **argv)
 			depth_blur = (depth_blur - (float)min) / ((float)max - (float)min);
 			ScaleAndDisplay(depth_blur, "depth-blur + laplacian", false, 100);*/
 
+            double q1, q2;
+            cv::minMaxIdx(depth0, &q1, &q2);
+
 
 			// blurred image + blurred depth
 			RunIteration(

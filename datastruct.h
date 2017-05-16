@@ -1,14 +1,14 @@
 #pragma once
 //#include "modelFitting.h"
 #include <opencv2\core.hpp>
-#include <vector>
+//#include <vector>
 //#include <forward_list>
-#include <list>
-#include <utility>
-#include <memory>
-#include <ctime>
-#include <cstdio>
-#include <ctype.h>
+//#include <list>
+//#include <utility>
+//#include <memory>
+//#include <ctime>
+//#include <cstdio>
+//#include <ctype.h>
 
 
 #define MAX_EDGE_WEIGHT (double)UINT64_MAX

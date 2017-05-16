@@ -1,18 +1,67 @@
 #include "Kruskal.h"
 #include "modelFitting.h"
-#include "ransac.h"
-#include "compute.h"
-#include "hierarchical.h"
+#include "random.h"
 #include <opencv2\highgui.hpp>
 #include <algorithm>
 #include <iterator>
 //#include <memory>
-
-#include "random.h"
-
 #include <cmath>
 #include <ctime>
 
+
+#if USE_LAB == 1 && USE_COLOR == 1
+void ImageGraph::set_rgb2xyz_convers_coef()
+{
+    rgb2xyz_convers_coef = cv::Mat(3, 3, CV_32FC1);
+    cv::Mat m = rgb2xyz_convers_coef;
+    m.at<float>(1, 0) = 0.1762004f;
+
+    m.at<float>(0, 0) = 0.4887180f / m.at<float>(1, 0);
+    m.at<float>(0, 1) = 0.3106803f / m.at<float>(1, 0);
+    m.at<float>(0, 2) = 0.2006017f / m.at<float>(1, 0);
+
+    m.at<float>(1, 1) = 0.8129847f / m.at<float>(1, 0);
+    m.at<float>(1, 2) = 0.0108109f / m.at<float>(1, 0);
+    m.at<float>(2, 0) = 0.0f;
+    m.at<float>(2, 1) = 0.0102048f / m.at<float>(1, 0);
+    m.at<float>(2, 2) = 0.9897952f / m.at<float>(1, 0);
+
+    m.at<float>(1, 0) = 1.0f;
+
+    cv::Vec3f ones(1.0f, 1.0f, 1.0f);
+    // if rgb coordinates are normalized to [0; 1]
+    whitepoint_xyz[0] = m.row(0).dot(ones);
+    whitepoint_xyz[1] = m.row(1).dot(ones);
+    whitepoint_xyz[2] = m.row(2).dot(ones);
+}
+
+void ImageGraph::rgb2xyz(cv::Vec3f &dest, cv::Vec3f &src)
+{
+    dest[0] = rgb2xyz_convers_coef.at<float>(0, 0) * src[0] +
+        rgb2xyz_convers_coef.at<float>(0, 1) * src[1] +
+        rgb2xyz_convers_coef.at<float>(0, 2) * src[2];
+    dest[1] = rgb2xyz_convers_coef.at<float>(1, 0) * src[0] +
+        rgb2xyz_convers_coef.at<float>(1, 1) * src[1] +
+        rgb2xyz_convers_coef.at<float>(1, 2) * src[2];
+    dest[2] = rgb2xyz_convers_coef.at<float>(2, 0) * src[0] +
+        rgb2xyz_convers_coef.at<float>(2, 1) * src[1] +
+        rgb2xyz_convers_coef.at<float>(2, 2) * src[2];
+}
+
+void ImageGraph::rgb2lab(cv::Vec3f &dest, cv::Vec3f &src)
+{
+    rgb2xyz(dest, src);
+    dest[0] = 116 * _f(src[1] / whitepoint_xyz[1]) - 16;
+    dest[1] = 500 * (_f(src[0] / whitepoint_xyz[0]) - _f(src[1] / whitepoint_xyz[1]));
+    dest[2] = 200 * (_f(src[1] / whitepoint_xyz[1]) - _f(src[2] / whitepoint_xyz[2]));
+}
+
+float ImageGraph::_f(float t)
+{
+    float d = 6.0f / 29;
+    return t > d * d * d ? std::pow(t, 1.0f / 3) : (t / (3 * d * d) + 4.0f / 29);
+}
+#endif
 
 int ImageGraph::get_smart_index(int i, int j)
 {
@@ -40,6 +89,9 @@ void ImageGraph::set_vertex(int x, int y)
 	dtypes::MakeSegment(&(disjoint_set[k].segmentinfo));
 	__x[k] = x;
 	__y[k] = y;
+#if USE_LAB == 1 && USE_COLOR == 1
+    rgb2lab(lab_pixels[k], img.at<cv::Vec3f>);
+#endif
 }
 
 void ImageGraph::set_edge(dtypes::Edge *e, int x1, int y1, int x2, int y2)
@@ -100,6 +152,10 @@ ImageGraph::ImageGraph(cv::Mat &image,
 	disjoint_set = new disjointset::DisjointSetNode[nvertex];
 	__x = new int[nvertex];
 	__y = new int[nvertex];
+#if USE_LAB == 1 && USE_COLOR == 1
+    lab_pixels.resize(nvertex);
+    set_rgb2xyz_convers_coef();
+#endif
 
 	this->segment_count_src = nvertex;
 
