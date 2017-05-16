@@ -86,13 +86,14 @@ ImageGraph::ImageGraph(cv::Mat &image,
 	this->z_scale_factor = z_coord_weight;
 	
 	//double(*weight_func)(Pixel *, Pixel *);
-	if (edgeweight_metrics == 1)
-		weight_function = &metrics::calc_weight_dist;
-	else
+	switch (edgeweight_metrics)
 	{
-
+	case metrics::EdgeWeightMetrics::L2_DEPTH_WEIGHTED:
+		weight_function = &metrics::calc_weight_dist;
+		break;
+	default:
+		break;
 	}
-
 	//pixels = new dtypes::Pixel[nvertex];
 	//edges = new std::vector<EdgeWrapper>(nedge);
 	
@@ -247,12 +248,16 @@ int ImageGraph::model_and_cluster(int target_num_segments, const std::vector<flo
 	//SimpleGenerator::Set();
 
     auto iter = params.begin();
-    int ransac_n = *iter++;
+    /*int ransac_n = *iter++;
     int ransac_k = *iter++;
     float ransac_thres = *iter++;
-    int ransac_d = *iter++;
-    std::vector<float> ransacparams({ (float)ransac_n, (float)ransac_k, ransac_thres, (float)ransac_d });
-    float estimator_regularization = *iter++;
+    int ransac_d = *iter++;*/
+
+    //std::vector<float> ransacparams({ (float)ransac_n, (float)ransac_k, ransac_thres, (float)ransac_d });
+    
+	std::vector<float> ransacparams;
+
+	float estimator_regularization = *iter++;
     int estimator_metrics = *iter++;
     std::vector<float> estimatorparams({ estimator_regularization, (float)estimator_metrics });
 
@@ -283,10 +288,15 @@ float ImageGraph::run_ransac(std::vector<float> &ransacparams, std::vector<float
     float totalerror = 0.0f;
 
     auto itransac = ransacparams.begin();
-    int ransac_n = *itransac++;
+    /*int ransac_n = *itransac++;
     int ransac_k = *itransac++;
     float ransac_thres = *itransac++;
-    int ransac_d = *itransac++;
+    int ransac_d = *itransac++;*/
+
+	int ransac_n;
+	int ransac_k;
+	float ransac_thres;
+	int ransac_d;
 
     auto itestim = estimatorparams.begin();
     float estim_regularization = *itestim++;
@@ -298,8 +308,15 @@ float ImageGraph::run_ransac(std::vector<float> &ransacparams, std::vector<float
 
     for (int t = 0; t < segment_count; t++)
     {
-        segsize = disjoint_set[t].segmentinfo.numelements;
+        segsize = disjoint_set[partition[t][0]].segmentinfo.numelements;
         sample.reserve(segsize);
+
+		select_ransac_n_d(&ransac_n, &ransac_d, segsize);
+		/*ransac_k = (int)(std::log(1 - 0.7f) / std::log(1 - std::pow(0.8f, ransac_n)) +
+			std::sqrt(1 - std::pow(0.8f, ransac_n)) / std::pow(0.8f, ransac_n) + 1);*/
+
+		ransac_k = 100;
+		ransac_thres = 0.5f;
 
         model::GradientDescent GD;
 
@@ -317,6 +334,12 @@ float ImageGraph::run_ransac(std::vector<float> &ransacparams, std::vector<float
         sample.clear();
     }
     return totalerror;
+}
+
+void ImageGraph::select_ransac_n_d(int *n, int *d, int segmentsize)
+{
+	*n = (int)(0.6 * segmentsize);
+	*d = (int)(0.3 * segmentsize);
 }
 
 int ImageGraph::run_lance_williams_algorithm(std::vector<float> &params)
@@ -338,7 +361,7 @@ int ImageGraph::run_lance_williams_algorithm(std::vector<float> &params)
     std::vector<float> funcparams;
     switch (similaritymetrics)
     {
-	case metrics::L2:
+	case metrics::PlaneDistMetrics::L2:
         sim_function = &metrics::compute_distL2;
         funcparams.push_back(*iter++);
         funcparams.push_back(*iter++);
@@ -449,8 +472,6 @@ int ImageGraph::run_lance_williams_algorithm(std::vector<float> &params)
 
 float ImageGraph::select_delta_param(cv::Mat &distmatrix, int n1, int n2)
 {
-    extern SimpleGenerator __g;
-    
     double maxdist = (double)UINT64_MAX, min;
 	if (segment_count <= n1)
 	{
@@ -465,7 +486,7 @@ float ImageGraph::select_delta_param(cv::Mat &distmatrix, int n1, int n2)
 	std::vector<int> randoms2(n2);
 	while (c < n2)
 	{
-		temp = distrib.Get()(__g.Get());
+		temp = distrib.Get()(RNG.Get());
 		if (std::find(randoms.begin(), randoms.end(), temp) == randoms.end())
 		{
 			randoms.push_back(temp);
@@ -677,7 +698,7 @@ void ImageGraph::PlotSegmentation(int waittime, const char *windowname)
 	
 	clock_t t = clock();
 
-	cv::Mat segmentation(img.size(), CV_8UC3, 0);
+	cv::Mat segmentation = cv::Mat::zeros(img.size(), CV_8UC3);
 	int a = 120, b = 256;
 	std::vector<cv::Vec3b> colors;
 	colors.reserve(segment_count);
@@ -688,6 +709,7 @@ void ImageGraph::PlotSegmentation(int waittime, const char *windowname)
 		colors.emplace_back(color_rng.uniform(a, b), color_rng.uniform(a, b), color_rng.uniform(a, b));
 		for (auto it = (*iter_segment).begin(); it != (*iter_segment).end(); it++)
 			segmentation.at<cv::Vec3b>(*it) = colors[w];
+		iter_segment++;
 	}
 
 	t = clock() - t;

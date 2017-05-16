@@ -6,12 +6,12 @@
 
 float model::FitToPlane(const cv::Vec3f &p, const cv::Vec4f &plane)
 {
-    return p[0] + plane[1] * p[1] + plane[2] * p[2] + plane[3];
+    return plane[0] * p[0] + plane[1] * p[1] + plane[2] * p[2] + plane[3];
 }
 
 bool model::checkFit(const cv::Vec3f &p, const cv::Vec4f &plane, float thres)
 {
-    return std::abs(p[0] + plane[1] * p[1] + plane[2] * p[2] + plane[3]) <= thres;
+    return std::abs(plane[0] * p[0] + plane[1] * p[1] + plane[2] * p[2] + plane[3]) <= thres;
 }
 
 //void model::UpdateModelParams(std::vector<float>& modelparams, std::vector<float>& bestmodelparams)
@@ -293,21 +293,18 @@ void model::GradientDescent::SetParams(float lambda, int type)
     metrics = type;
 }
 
-void model::GradientDescent::SetBoundary(std::vector<cv::Vec3f>& sample, int leftbound, int rightbound)
-{
-    data.swap(sample);
-    n = rightbound - leftbound;
-}
-
 const cv::Vec4f& model::GradientDescent::getEstimate() const
 {
     return paramestimate;
 }
 
-float model::GradientDescent::Apply()
+float model::GradientDescent::Apply(std::vector<cv::Vec3f>& data, int lbound, int rbound)
 {
     cv::Vec3f p;
     float error = 0.0f;
+	float t;
+
+	int n = rbound - lbound;
 
     if (metrics == L2)
     {
@@ -320,7 +317,37 @@ float model::GradientDescent::Apply()
             sumY2 = 0.0f,
             sumZ2 = 0.0f;
 
-        for (int w = leftbound; w < rightbound; w++)
+		cv::Mat A = cv::Mat::zeros(3, 3, CV_32FC1);
+		cv::Mat Z = cv::Mat::zeros(3, 1, CV_32FC1);
+		cv::Mat estimate(3, 1, CV_32FC1);
+
+		for (int w = lbound; w < rbound; w++)
+		{
+			p = data[w];
+			A.at<float>(0, 1) += p[0];
+			A.at<float>(0, 2) += p[1];
+			A.at<float>(1, 1) += p[0] * p[0];
+			A.at<float>(1, 2) += p[0] * p[1];
+			A.at<float>(2, 2) += p[1] * p[1];
+
+			Z.at<float>(0, 0) += p[2];
+			Z.at<float>(1, 0) += p[0] * p[2];
+			Z.at<float>(2, 0) += p[1] * p[2];
+		}
+		A.at<float>(0, 0) = n * (1 + lam);
+		A.at<float>(1, 1) += n * lam;
+		A.at<float>(2, 2) += n * lam;
+		A.at<float>(1, 0) = (t = A.at<float>(0, 1));
+		A.at<float>(2, 0) = (t = A.at<float>(0, 2));
+		A.at<float>(2, 1) = (t = A.at<float>(1, 2));
+
+		estimate = A.inv(cv::DECOMP_QR) * Z;
+		paramestimate[0] = estimate.at<float>(1, 0);
+		paramestimate[1] = estimate.at<float>(2, 0);
+		paramestimate[2] = 1.0f;
+		paramestimate[3] = estimate.at<float>(0, 0);
+
+        /*for (int w = leftbound; w < rightbound; w++)
         {
             p = data[w];
             sumX += p[0];
@@ -337,11 +364,13 @@ float model::GradientDescent::Apply()
         paramestimate[2] = ((sumYZ + sumY*sumZ / (n + lam))*(sumXZ + sumX*sumY / (n + lam)) / (sumY2 + sumY*sumY / (n + lam) + lam) - sumXZ - sumX*sumZ / (n + lam)) /
             (sumZ2 + sumZ*sumZ / (n + lam) + lam - (sumYZ + sumY*sumZ / (n + lam))*(sumYZ + sumY*sumZ / (n + lam)) / (sumY2 + sumY*sumY / (n + lam) + lam));
         paramestimate[1] = (sumXY + sumX*sumY / (n + lam) + (sumYZ + sumY*sumZ / (n + lam))*paramestimate[2]) / (sumY2 + sumY*sumY / (n + lam) + lam);
-        paramestimate[3] = (sumX + sumY*paramestimate[1] + sumZ*paramestimate[2]) / (n + lam);
+        paramestimate[3] = (sumX + sumY*paramestimate[1] + sumZ*paramestimate[2]) / (n + lam);*/
 
-        for (auto it = data.begin() + leftbound; it != data.begin() + rightbound; it++)
-            error += std::abs(FitToPlane(*it, paramestimate));
-
+		for (int w = lbound; w < rbound; w++)
+		{
+			t = FitToPlane(data[w], paramestimate);
+			error += t * t / n + lam * paramestimate.dot(paramestimate);
+		}
         return error;
 
         //M->setCoords(1.0f, 0, 1);
@@ -359,10 +388,6 @@ float model::GradientDescent::Apply()
         //    errors.push_back(M->Fit((*it), 1));
         //return std::accumulate(errors.begin(), errors.end(), 0.0f);
     }
-    else if (metrics == L1)
-    { // any iterative algorithm
-
-    }
     else
     { // another possible option
 
@@ -373,10 +398,7 @@ float model::GradientDescent::Apply()
 
 float model::RANSAC(std::vector<cv::Vec3f>& sample, int param_n, int param_k, float param_thres, int param_d,
 	GradientDescent* GD, cv::Vec4f& bestplane)
-{
-    static SimpleGenerator *extg = &g;
-    
-    std::vector<cv::Vec3f> also_inliers;
+{    
 	//int also_inliers_size;
 
 	float error = -1.0f;
@@ -388,17 +410,20 @@ float model::RANSAC(std::vector<cv::Vec3f>& sample, int param_n, int param_k, fl
 	if (param_n < 3)
 		return error;
 
+	std::vector<cv::Vec3f> also_inliers;
+	also_inliers.reserve(sample.size());
+
 	for (int t = 0; t < param_k; t++)
 	{
-		std::shuffle(sample.begin(), sample.end(), extg->Get());
-		GD->SetBoundary(sample, 0, param_n);
-		GD->Apply();
+		std::shuffle(sample.begin(), sample.end(), RNG.Get());
+
+		GD->Apply(sample, 0, param_n);
 
 		//compute(data.begin(), data.begin() + param_n, M, E);
 
 		auto start = sample.begin();
 		std::advance(start, param_n);
-		also_inliers.resize(sample.size() - param_n);
+		
 		//also_inliers_size = sample.size() - param_n;
 
 		for (auto iter = start; iter != sample.end(); iter++)
@@ -410,8 +435,7 @@ float model::RANSAC(std::vector<cv::Vec3f>& sample, int param_n, int param_k, fl
 		if (also_inliers.size() >= param_d)
 		{
 			also_inliers.insert(also_inliers.end(), sample.begin(), sample.begin() + param_n);
-			GD->SetBoundary(also_inliers, 0, also_inliers.size());
-			error = GD->Apply();
+			error = GD->Apply(also_inliers, 0, also_inliers.size());
 			if (error < besterror)
 			{
 				besterror = error;

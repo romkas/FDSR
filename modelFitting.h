@@ -18,10 +18,9 @@ namespace model
 	class GradientDescent
 	{
 		float lam;
-		int n;
         int metrics;
-        std::vector<cv::Vec3f> data;
-        int leftbound, rightbound;
+        //std::vector<cv::Vec3f> data;
+        
         cv::Vec4f paramestimate;
 
     public:
@@ -29,16 +28,16 @@ namespace model
         ~GradientDescent() {}
 
         void SetParams(float, int);
-        void SetBoundary(std::vector<cv::Vec3f>&, int, int);
         
         const cv::Vec4f& getEstimate() const;
 
-        float Apply();
+        float Apply(std::vector<cv::Vec3f>&, int, int);
 
         enum RegularizationType
         {
-            L1,
-            L2,
+            L2 = 0,
+			L2_LASSO,
+			L1_LASSO,
             OTHER
         };
 	};

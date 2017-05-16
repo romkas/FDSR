@@ -23,3 +23,5 @@ public:
     SimpleDistribution(int a, int b);
     std::uniform_int_distribution<int>& Get();
 };
+
+extern SimpleGenerator RNG;

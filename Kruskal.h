@@ -101,6 +101,7 @@ class ImageGraph
 	int model_and_cluster(int, const std::vector<float>&, float*);
 
     float run_ransac(std::vector<float>&, std::vector<float>&);
+	void select_ransac_n_d(int*, int*, int);
     
     int run_lance_williams_algorithm(std::vector<float>&);
 	float select_delta_param(cv::Mat&, int, int);
@@ -178,9 +179,15 @@ namespace metrics
 
 	float compute_distL2(cv::Vec4f&, cv::Vec4f&, std::vector<float>&);
 
-	enum MetricsType
+	enum EdgeWeightMetrics
 	{
-		L2 = 0,
-
+		L2_DEPTH_WEIGHTED = 1,
+		
+	};
+	
+	enum PlaneDistMetrics
+	{
+		L2 = 256,
+		
 	};
 }

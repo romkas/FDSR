@@ -187,10 +187,12 @@ void RunIteration(
 	printf("==================================\n");
 }
 
+
+SimpleGenerator RNG;
+
+
 int main(int argc, char **argv)
 {
-    extern SimpleGenerator g;
-
     //if (argc >= 9)
 	//{
 		int c = 1;
@@ -202,11 +204,13 @@ int main(int argc, char **argv)
 		int param_min_segment_size = std::atoi(argv[c++]);
 		int param_target_num_segments = std::atoi(argv[c++]);
 
-		int param_ransac_n = std::atoi(argv[c++]);
+		int clustering_mode = std::atoi(argv[c++]);
+		/*int param_ransac_n = std::atoi(argv[c++]);
 		int param_ransac_d = std::atoi(argv[c++]);
 		float param_ransac_thres = std::atof(argv[c++]);
 		int param_ransac_k = (int)(std::log(1 - 0.7f) / std::log(1 - std::pow(0.8f, param_ransac_n)) +
-			std::sqrt(1 - std::pow(0.8f, param_ransac_n)) / std::pow(0.8f, param_ransac_n) + 1);
+			std::sqrt(1 - std::pow(0.8f, param_ransac_n)) / std::pow(0.8f, param_ransac_n) + 1);*/
+
 		float param_ransacestim_regularization = std::atof(argv[c++]);
 		int param_ransacestim_metrics = std::atoi(argv[c++]);
 
@@ -217,10 +221,10 @@ int main(int argc, char **argv)
 		int param_clustering_n2 = std::atoi(argv[c++]);
 
 		std::vector<float> clustering_params{
-			(float)param_ransac_n,
+			/*(float)param_ransac_n,
 			(float)param_ransac_k,
 			param_ransac_thres,
-			(float)param_ransac_d,
+			(float)param_ransac_d,*/
 			param_ransacestim_regularization,
 			(float)param_ransacestim_metrics,
 			(float)param_modeldistance_metrics,
@@ -391,7 +395,7 @@ int main(int argc, char **argv)
 				param_k,
 				param_min_segment_size,
 				param_target_num_segments,
-				ImageGraph::BOTH,
+				clustering_mode,
 				clustering_params,
 				100,
 				"segmentation-blur",
@@ -420,7 +424,7 @@ int main(int argc, char **argv)
 				param_k,
 				param_min_segment_size,
 				param_target_num_segments,
-				ImageGraph::BOTH,
+				clustering_mode,
 				clustering_params,
 				100,
 				"segmentation-blur-laplace",
