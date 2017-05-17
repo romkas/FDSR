@@ -37,15 +37,19 @@ void ImageGraph::set_rgb2xyz_convers_coef()
 
 void ImageGraph::rgb2xyz(cv::Vec3f &dest, cv::Vec3f &src)
 {
-    dest[0] = rgb2xyz_convers_coef.at<float>(0, 0) * src[0] +
-        rgb2xyz_convers_coef.at<float>(0, 1) * src[1] +
-        rgb2xyz_convers_coef.at<float>(0, 2) * src[2];
-    dest[1] = rgb2xyz_convers_coef.at<float>(1, 0) * src[0] +
-        rgb2xyz_convers_coef.at<float>(1, 1) * src[1] +
-        rgb2xyz_convers_coef.at<float>(1, 2) * src[2];
-    dest[2] = rgb2xyz_convers_coef.at<float>(2, 0) * src[0] +
-        rgb2xyz_convers_coef.at<float>(2, 1) * src[1] +
-        rgb2xyz_convers_coef.at<float>(2, 2) * src[2];
+	dest[0] = rgb2xyz_convers_coef.row(0).dot(src);
+	dest[1] = rgb2xyz_convers_coef.row(1).dot(src);
+	dest[2] = rgb2xyz_convers_coef.row(2).dot(src);
+
+	//dest[0] = rgb2xyz_convers_coef.at<float>(0, 0) * src[0] +
+ //       rgb2xyz_convers_coef.at<float>(0, 1) * src[1] +
+ //       rgb2xyz_convers_coef.at<float>(0, 2) * src[2];
+ //   dest[1] = rgb2xyz_convers_coef.at<float>(1, 0) * src[0] +
+ //       rgb2xyz_convers_coef.at<float>(1, 1) * src[1] +
+ //       rgb2xyz_convers_coef.at<float>(1, 2) * src[2];
+ //   dest[2] = rgb2xyz_convers_coef.at<float>(2, 0) * src[0] +
+ //       rgb2xyz_convers_coef.at<float>(2, 1) * src[1] +
+ //       rgb2xyz_convers_coef.at<float>(2, 2) * src[2];
 }
 
 void ImageGraph::rgb2lab(cv::Vec3f &dest, cv::Vec3f &src)
@@ -89,6 +93,8 @@ void ImageGraph::set_vertex(int x, int y)
 	dtypes::MakeSegment(&(disjoint_set[k].segmentinfo));
 	__x[k] = x;
 	__y[k] = y;
+	__xfloat[k] = (float)__x[k] / (im_wid - 1);
+	__yfloat[k] = (float)__y[k] / (im_hgt - 1);
 #if USE_LAB == 1 && USE_COLOR == 1
     rgb2lab(lab_pixels[k], img.at<cv::Vec3f>);
 #endif
@@ -141,7 +147,11 @@ ImageGraph::ImageGraph(cv::Mat &image,
 	switch (edgeweight_metrics)
 	{
 	case metrics::EdgeWeightMetrics::L2_DEPTH_WEIGHTED:
+#if USE_LAB == 1
+		weight_function = &metrics::calc_weight_dist_LAB76;
+#else
 		weight_function = &metrics::calc_weight_dist;
+#endif
 		break;
 	default:
 		break;
@@ -152,6 +162,8 @@ ImageGraph::ImageGraph(cv::Mat &image,
 	disjoint_set = new disjointset::DisjointSetNode[nvertex];
 	__x = new int[nvertex];
 	__y = new int[nvertex];
+	__xfloat = new float[nvertex];
+	__yfloat = new float[nvertex];
 #if USE_LAB == 1 && USE_COLOR == 1
     lab_pixels.resize(nvertex);
     set_rgb2xyz_convers_coef();
@@ -271,6 +283,8 @@ ImageGraph::~ImageGraph()
 	//delete edges;
 	//delete segment_foreach_pixel;
 	//delete pixels;
+	delete[] __xfloat;
+	delete[] __yfloat;
 	delete[] __x;
 	delete[] __y;
 	delete[] disjoint_set;
@@ -320,7 +334,7 @@ int ImageGraph::model_and_cluster(int target_num_segments, const std::vector<flo
 	t = clock();
     *totalerror = run_ransac(ransacparams, estimatorparams);
     t = clock() - t;
-    printf("TIME (RANSAC. Calculating models          ) (ms): %8.2f\n", (double)t * 1000. / CLOCKS_PER_SEC);
+    printf("TIME (Fit planes to point clouds          ) (ms): %8.2f\n", (double)t * 1000. / CLOCKS_PER_SEC);
     
     int distancemetrics = *iter++;
 	float distancemetrics_weight_normal = *iter++;
@@ -334,7 +348,7 @@ int ImageGraph::model_and_cluster(int target_num_segments, const std::vector<flo
     t = clock();
     int num_segments_after = run_lance_williams_algorithm(clusteringparams);
     t = clock() - t;
-    printf("TIME (RANSAC. Hierarchical clustering     ) (ms): %8.2f\n", (double)t * 1000. / CLOCKS_PER_SEC);
+    printf("TIME (Lance-Williams hier-al clustering   ) (ms): %8.2f\n", (double)t * 1000. / CLOCKS_PER_SEC);
 
     return num_segments_before - num_segments_after;
 }
@@ -377,7 +391,9 @@ float ImageGraph::run_ransac(std::vector<float> &ransacparams, std::vector<float
         model::GradientDescent GD;
 
 		for (auto it = partition_content[t].begin(); it != partition_content[t].end(); it++)
-			sample.emplace_back( (*it)[0], (*it)[1], dep.at<float>((*it)[0], (*it)[1]) );
+			sample.emplace_back(__xfloat[get_smart_index((*it)[0], (*it)[1])],
+				__yfloat[get_smart_index((*it)[0], (*it)[1])], dep.at<float>((*it)[0], (*it)[1]));
+			//sample.emplace_back( (*it)[0], (*it)[1], dep.at<float>((*it)[0], (*it)[1]) );
 			//sample[w++] = cv::Vec3f((*it)[0], (*it)[1], dep.at<float>((*it)[0], (*it)[1]));
 
         GD.SetParams(estim_regularization, estim_metrics);
@@ -814,7 +830,7 @@ int ImageGraph::SegmentationKruskal(double k)
 		}
 	}
 	t = clock() - t;
-	printf("TIME (Kruskal algorithm                   ) (ms): %8.2f\n", (double)t * 1000. / CLOCKS_PER_SEC);
+	printf("TIME (Minimal spanning tree               ) (ms): %8.2f\n", (double)t * 1000. / CLOCKS_PER_SEC);
 	
 	t = clock();
 	partition_src = new int[segment_count_src];
@@ -840,7 +856,7 @@ int ImageGraph::SegmentationKruskal(double k)
 		partition_avdepth_src[pos] += dep.at<float>(pcoord);
 	}
 	t = clock() - t;
-	printf("TIME (Forming segments                    ) (ms): %8.2f\n", (double)t * 1000. / CLOCKS_PER_SEC);
+	printf("TIME (Making the list of segments         ) (ms): %8.2f\n", (double)t * 1000. / CLOCKS_PER_SEC);
 
 	return segment_count_src;
 }
@@ -865,9 +881,32 @@ double metrics::calc_weight_dist(
 #endif
 	int xdelta = x1 - x2, ydelta = y1 - y2;
 	float zdelta = depth1 - depth2;
-	return cv::sqrt(r + xy_sc * (xdelta * xdelta + ydelta * ydelta) +
-		z_sc * zdelta * zdelta);
+	//return cv::sqrt(r + xy_sc * (xdelta * xdelta + ydelta * ydelta) +	z_sc * zdelta * zdelta);
+
+	//return 0.6 * std::sqrt(r) + 0.4 * std::abs(depth1 - depth2);
+	return std::sqrt(r + z_sc * zdelta * zdelta);
 }
+
+#if USE_LAB == 1
+double metrics::calc_weight_dist_LAB76(
+	cv::Vec3f &p1, cv::Vec3f &p2,
+	float depth1, float depth2,
+	int x1, int y1, int x2, int y2,
+	double xy_sc, double z_sc)
+{
+	cv::Vec3f d = p1 - p2;
+	float zdelta = depth1 - depth2;
+	return 0.6 * std::sqrt(d.dot(d)) / 3 + 0.4 * std::abs(zdelta);
+}
+double metrics::calc_weight_dist_LAB00(
+	cv::Vec3f &p1, cv::Vec3f &p2,
+	float depth1, float depth2,
+	int x1, int y1, int x2, int y2,
+	double xy_sc, double z_sc)
+{
+	return 0.0;
+}
+#endif
 
 float metrics::lance_williams_ward(float rUV, float rUS, float rVS, float au, float av, float b, float g)
 {

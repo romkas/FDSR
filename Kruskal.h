@@ -38,7 +38,8 @@ class ImageGraph
 
 	int *__x;
 	int *__y;
-
+	float *__xfloat;
+	float *__yfloat;
 	//int segment_counter;
 
 	//std::vector<EdgeWrapper> edges;
@@ -181,6 +182,19 @@ namespace metrics
 		int x1, int y1, int x2, int y2,
 		double xy_sc, double z_sc);
 	
+#if USE_LAB == 1
+	double calc_weight_dist_LAB76(
+		cv::Vec3f&, cv::Vec3f&,
+		float depth1, float depth2,
+		int x1, int y1, int x2, int y2,
+		double xy_sc, double z_sc);
+	double calc_weight_dist_LAB00(
+		cv::Vec3f&, cv::Vec3f&,
+		float depth1, float depth2,
+		int x1, int y1, int x2, int y2,
+		double xy_sc, double z_sc);
+#endif
+
 	//double calc_weight_color(Pixel *n1, Pixel *n2, int im_type);
 	//double calc_weight_
 	// other weight functions

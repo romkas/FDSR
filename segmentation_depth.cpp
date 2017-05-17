@@ -385,7 +385,7 @@ int main(int argc, char **argv)
 
             double q1, q2;
             cv::minMaxIdx(depth0, &q1, &q2);
-
+			depth0 = (depth0 - (float)q1) / ((float)q2 - (float)q1);
 
 			// blurred image + blurred depth
 			RunIteration(
