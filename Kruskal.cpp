@@ -28,18 +28,31 @@ void ImageGraph::set_rgb2xyz_convers_coef()
 
     m.at<float>(1, 0) = 1.0f;
 
-    cv::Vec3f ones(1.0f, 1.0f, 1.0f);
-    // if rgb coordinates are normalized to [0; 1]
-    whitepoint_xyz[0] = m.row(0).dot(ones);
-    whitepoint_xyz[1] = m.row(1).dot(ones);
-    whitepoint_xyz[2] = m.row(2).dot(ones);
+    whitepoint_xyz[0] = m.at<float>(0, 0) + m.at<float>(0, 1) + m.at<float>(0, 2);
+    whitepoint_xyz[1] = m.at<float>(1, 0) + m.at<float>(1, 1) + m.at<float>(1, 2);
+    whitepoint_xyz[2] = m.at<float>(2, 0) + m.at<float>(2, 1) + m.at<float>(2, 2);
+
+    blackpoint_xyz = cv::Vec3f(0.0f, 0.0f, 0.0f);
 }
+
+//void ImageGraph::set_rbg2lab_scaling()
+//{
+//    rgb2lab(lab_scaling, cv::Vec3f(0.0f, 1.0f, 0.0f));
+//    lab_scaling[1] = std::abs(lab_scaling[1]) * 2;
+//    lab_scaling[2] = std::abs(lab_scaling[2]) * 2;
+//}
+//
+//cv::Vec3i & ImageGraph::scale_lab(cv::Vec3f &p)
+//{
+//    return cv::Vec3i((int)p[0], (int)(127.5*p[1] / lab_scaling[1] - 0.5), (int)(127.5*p[2] / lab_scaling[2] - 0.5));
+//}
 
 void ImageGraph::rgb2xyz(cv::Vec3f &dest, cv::Vec3f &src)
 {
-	dest[0] = rgb2xyz_convers_coef.row(0).dot(src);
-	dest[1] = rgb2xyz_convers_coef.row(1).dot(src);
-	dest[2] = rgb2xyz_convers_coef.row(2).dot(src);
+    cv::Mat m = rgb2xyz_convers_coef;
+    dest[0] = m.at<float>(0, 0) * src[0] + m.at<float>(0, 1) * src[1] + m.at<float>(0, 2) * src[2];
+    dest[1] = m.at<float>(1, 0) * src[0] + m.at<float>(1, 1) * src[1] + m.at<float>(1, 2) * src[2];
+    dest[2] = m.at<float>(2, 0) * src[0] + m.at<float>(2, 1) * src[1] + m.at<float>(2, 2) * src[2];
 
 	//dest[0] = rgb2xyz_convers_coef.at<float>(0, 0) * src[0] +
  //       rgb2xyz_convers_coef.at<float>(0, 1) * src[1] +
@@ -54,10 +67,11 @@ void ImageGraph::rgb2xyz(cv::Vec3f &dest, cv::Vec3f &src)
 
 void ImageGraph::rgb2lab(cv::Vec3f &dest, cv::Vec3f &src)
 {
-    rgb2xyz(dest, src);
-    dest[0] = 116 * _f(src[1] / whitepoint_xyz[1]) - 16;
-    dest[1] = 500 * (_f(src[0] / whitepoint_xyz[0]) - _f(src[1] / whitepoint_xyz[1]));
-    dest[2] = 200 * (_f(src[1] / whitepoint_xyz[1]) - _f(src[2] / whitepoint_xyz[2]));
+    cv::Vec3f temp;
+    rgb2xyz(temp, src);
+    dest[0] = 116 * _f(temp[1] / whitepoint_xyz[1]) - 16;
+    dest[1] = 500 * (_f(temp[0] / whitepoint_xyz[0]) - _f(temp[1] / whitepoint_xyz[1]));
+    dest[2] = 200 * (_f(temp[1] / whitepoint_xyz[1]) - _f(temp[2] / whitepoint_xyz[2]));
 }
 
 float ImageGraph::_f(float t)
@@ -96,7 +110,10 @@ void ImageGraph::set_vertex(int x, int y)
 	__xfloat[k] = (float)__x[k] / (im_wid - 1);
 	__yfloat[k] = (float)__y[k] / (im_hgt - 1);
 #if USE_LAB == 1 && USE_COLOR == 1
-    rgb2lab(lab_pixels[k], img.at<cv::Vec3f>);
+    //cv::Vec3f temp;
+    //rgb2lab(temp, img.at<cv::Vec3f>(x, y));
+    //lab_pixels[k] = scale_lab(temp);
+    rgb2lab(lab_pixels[k], img.at<cv::Vec3f>(x, y));
 #endif
 }
 
@@ -167,6 +184,7 @@ ImageGraph::ImageGraph(cv::Mat &image,
 #if USE_LAB == 1 && USE_COLOR == 1
     lab_pixels.resize(nvertex);
     set_rgb2xyz_convers_coef();
+    //set_rbg2lab_scaling();
 #endif
 
 	this->segment_count_src = nvertex;
@@ -896,8 +914,9 @@ double metrics::calc_weight_dist_LAB76(
 {
 	cv::Vec3f d = p1 - p2;
 	float zdelta = depth1 - depth2;
-	return 0.6 * std::sqrt(d.dot(d)) / 3 + 0.4 * std::abs(zdelta);
+	return std::sqrt(d.dot(d)) + z_sc * std::abs(zdelta);
 }
+
 double metrics::calc_weight_dist_LAB00(
 	cv::Vec3f &p1, cv::Vec3f &p2,
 	float depth1, float depth2,

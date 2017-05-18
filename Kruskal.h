@@ -67,9 +67,14 @@ class ImageGraph
 
 #if USE_LAB == 1 && USE_COLOR == 1
     cv::Mat rgb2xyz_convers_coef;
+    //cv::Vec3f lab_scaling;
     cv::Vec3f whitepoint_xyz;
+    cv::Vec3f blackpoint_xyz;
+    //std::vector<cv::Vec3i> lab_pixels;
     std::vector<cv::Vec3f> lab_pixels;
     void set_rgb2xyz_convers_coef();
+    //void set_rbg2lab_scaling();
+    //cv::Vec3i& scale_lab(cv::Vec3f&);
     void rgb2xyz(cv::Vec3f&, cv::Vec3f&);
     void rgb2lab(cv::Vec3f&, cv::Vec3f&);
     float _f(float);
