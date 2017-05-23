@@ -11,41 +11,8 @@
 //#include <ctype.h>
 
 
-#define MAX_EDGE_WEIGHT (double)UINT64_MAX
-
 namespace dtypes
 {
-	struct Edge;
-	struct Segment;
-	class HashTable;
-
-	struct Edge
-	{
-		int x1, y1;
-		int x2, y2;
-		double weight;
-	};
-
-	struct Segment
-	{
-		double max_weight;
-		int numelements;
-		//int label;
-		//cv::Vec3b color;
-	};
-
-	void MakeEdge(Edge *e, int xx1, int yy1, int xx2, int yy2, double w);
-
-	void MakeSegment(Segment *seg);
-
-	void MakeSegment(Segment *seg, int numel, int label, double w);
-
-	void MakeSegment(Segment *seg, int numel, int label, double w, cv::Vec3b& color);
-
-	void UpdateSegment(Segment *dest, Segment *src, double w);
-
-	void CopySegment(Segment *dest, Segment *src);
-
 	class HashTable
 	{
 		enum EntryType { NonEmpty, Empty, Deleted };

@@ -2,6 +2,7 @@
 #include "random.h"
 #include <numeric>
 #include <iterator>
+#include <chrono>
 
 
 float model::FitToPlane(const cv::Vec3f &p, const cv::Vec4f &plane)
@@ -397,8 +398,14 @@ float model::GradientDescent::Apply(std::vector<cv::Vec3f>& data, int lbound, in
 //void model::GradientDescent::
 
 float model::RANSAC(std::vector<cv::Vec3f>& sample, int param_n, int param_k, float param_thres, int param_d,
-	GradientDescent* GD, cv::Vec4f& bestplane)
+	GradientDescent* GD, cv::Vec4f& bestplane,
+	long long *count1, long long *count2)
 {    
+	*count1 = 0;
+	*count2 = 0;
+	std::chrono::high_resolution_clock localtimer;
+	//std::chrono::high_resolution_clock localtimer0;
+	
 	//int also_inliers_size;
 
 	float error = -1.0f;
@@ -410,26 +417,45 @@ float model::RANSAC(std::vector<cv::Vec3f>& sample, int param_n, int param_k, fl
 	if (param_n < 3)
 		return error;
 
+	// base case
+	if (param_k == 1)
+	{
+		auto start = localtimer.now();
+		besterror = GD->Apply(sample, 0, param_n);
+		auto elapsed = localtimer.now() - start;
+		*count2 = std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
+		bestplane = GD->getEstimate();
+		return besterror;
+	}
+
 	std::vector<cv::Vec3f> also_inliers;
 	also_inliers.reserve(sample.size());
 
+	//auto start = localtimer0.now();
 	for (int t = 0; t < param_k; t++)
 	{
+		auto st = localtimer.now();
 		std::shuffle(sample.begin(), sample.end(), RNG.Get());
+		auto el = localtimer.now() - st;
+		*count1 += std::chrono::duration_cast<std::chrono::microseconds>(el).count();
 
+		st = localtimer.now();
 		GD->Apply(sample, 0, param_n);
+		el = localtimer.now() - st;
+		*count2 += std::chrono::duration_cast<std::chrono::microseconds>(el).count();
 
 		//compute(data.begin(), data.begin() + param_n, M, E);
 
-		auto start = sample.begin();
-		std::advance(start, param_n);
+
+		auto iter = sample.begin();
+		std::advance(iter, param_n);
 		
 		//also_inliers_size = sample.size() - param_n;
 
-		for (auto iter = start; iter != sample.end(); iter++)
+		for (auto it = iter; it != sample.end(); it++)
 		{
-			if (checkFit(*iter, GD->getEstimate(), param_thres))
-				also_inliers.push_back(*iter);
+			if (checkFit(*it, GD->getEstimate(), param_thres))
+				also_inliers.push_back(*it);
 		}
 
 		if (also_inliers.size() >= param_d)
@@ -445,6 +471,7 @@ float model::RANSAC(std::vector<cv::Vec3f>& sample, int param_n, int param_k, fl
 
 		also_inliers.clear();
 	}
+
 	//M->setNormal(cv::normalize(cv::Vec3f(M->getCoords(0, 0), M->getCoords(1, 0), M->getCoords(2, 0))));
 
 	return besterror;

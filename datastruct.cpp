@@ -1,55 +1,6 @@
 #pragma once
 #include "datastruct.h"
 
-
-void dtypes::MakeEdge(Edge *e, int xx1, int yy1, int xx2, int yy2, double w)
-{
-	e->x1 = xx1;
-	e->y1 = yy1;
-	e->x2 = xx2;
-	e->y2 = yy2;
-	e->weight = w;
-}
-
-void dtypes::MakeSegment(Segment *seg)
-{
-	seg->numelements = 1;
-	//seg->color = cv::Vec3b(0, 0, 0);
-	seg->max_weight = MAX_EDGE_WEIGHT;
-}
-
-void dtypes::MakeSegment(Segment *seg, int numel, int label, double w)
-{
-	seg->numelements = numel;
-	//seg->label = label;
-	//seg->color = cv::Vec3b(0, 0, 0);
-	seg->max_weight = w;
-}
-
-void dtypes::MakeSegment(Segment *seg, int numel, int label, double w, cv::Vec3b &clr)
-{
-	seg->numelements = numel;
-	//seg->label = label;
-	//seg->color = clr;
-	seg->max_weight = w;
-}
-
-void dtypes::UpdateSegment(Segment *dest, Segment *src, double w)
-{
-	dest->max_weight = w;
-	dest->numelements += src->numelements;
-	//src->numelements = 0;
-}
-
-void dtypes::CopySegment(Segment * dest, Segment * src)
-{
-	dest->numelements = src->numelements;
-	dest->max_weight = src->max_weight;
-	//dest->color = src->color;
-	//dest->label = src->label;
-}
-
-
 dtypes::HashTable::HashTable(int size)
 {
 	int k = 1;

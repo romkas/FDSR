@@ -123,6 +123,7 @@ namespace model
 
 	//inline std::vector<float>& estimator_defaults();
 
-	float RANSAC(std::vector<cv::Vec3f>&, int, int, float, int, GradientDescent*, cv::Vec4f&);
+	float RANSAC(std::vector<cv::Vec3f>&, int, int, float, int, GradientDescent*, cv::Vec4f&,
+		long long*, long long*);
 
 }
