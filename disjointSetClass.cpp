@@ -1,3 +1,5 @@
+#if RUN != 0
+
 #include "disjointSetClass.h"
 
 using namespace disjointset;
@@ -18,36 +20,37 @@ void disjointset::MakeSegment(Segment *seg)
 	seg->max_weight = MAX_EDGE_WEIGHT;
 }
 
-void disjointset::MakeSegment(Segment *seg, int numel, int label, double w)
-{
-	seg->numelements = numel;
-	//seg->label = label;
-	//seg->color = cv::Vec3b(0, 0, 0);
-	seg->max_weight = w;
-}
-
-void disjointset::MakeSegment(Segment *seg, int numel, int label, double w, cv::Vec3b &clr)
-{
-	seg->numelements = numel;
-	//seg->label = label;
-	//seg->color = clr;
-	seg->max_weight = w;
-}
+//void disjointset::MakeSegment(Segment *seg, int numel, int label, double w)
+//{
+//	seg->numelements = numel;
+//	//seg->label = label;
+//	//seg->color = cv::Vec3b(0, 0, 0);
+//	seg->max_weight = w;
+//}
+//
+//void disjointset::MakeSegment(Segment *seg, int numel, int label, double w, cv::Vec3b &clr)
+//{
+//	seg->numelements = numel;
+//	//seg->label = label;
+//	//seg->color = clr;
+//	seg->max_weight = w;
+//}
 
 void disjointset::UpdateSegment(Segment *dest, Segment *src, double w)
 {
 	dest->max_weight = w;
 	dest->numelements += src->numelements;
-	//src->numelements = 0;
+	src->max_weight = -1.0;
+	src->numelements = 0;
 }
 
-void disjointset::CopySegment(Segment * dest, Segment * src)
-{
-	dest->numelements = src->numelements;
-	dest->max_weight = src->max_weight;
-	//dest->color = src->color;
-	//dest->label = src->label;
-}
+//void disjointset::CopySegment(Segment * dest, Segment * src)
+//{
+//	dest->numelements = src->numelements;
+//	dest->max_weight = src->max_weight;
+//	//dest->color = src->color;
+//	//dest->label = src->label;
+//}
 
 void disjointset::MakeSet(DisjointSetNode * node, int id)
 {
@@ -65,7 +68,7 @@ DisjointSetNode * disjointset::FindSet(DisjointSetNode * node)
 	if (node != par)
 	{
 		par = FindSet(par);
-		disjointset::CopySegment(&(node->segmentinfo), &(par->segmentinfo));
+		//disjointset::CopySegment(&(node->segmentinfo), &(par->segmentinfo));
 	}
 	return par;
 }
@@ -87,3 +90,5 @@ DisjointSetNode * disjointset::Union(DisjointSetNode * node1, DisjointSetNode * 
 		return node2;
 	}
 }
+
+#endif

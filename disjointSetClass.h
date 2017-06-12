@@ -1,4 +1,7 @@
 #pragma once
+
+#if RUN != 0
+
 #include "datastruct.h"
 #define MAX_EDGE_WEIGHT (double)UINT64_MAX
 
@@ -21,13 +24,13 @@ namespace disjointset
 
 	void MakeSegment(Segment *seg);
 
-	void MakeSegment(Segment *seg, int numel, int label, double w);
+	/*void MakeSegment(Segment *seg, int numel, int label, double w);
 
-	void MakeSegment(Segment *seg, int numel, int label, double w, cv::Vec3b& color);
+	void MakeSegment(Segment *seg, int numel, int label, double w, cv::Vec3b& color);*/
 
 	void UpdateSegment(Segment *dest, Segment *src, double w);
 
-	void CopySegment(Segment *dest, Segment *src);
+	//void CopySegment(Segment *dest, Segment *src);
 	
 	struct DisjointSetNode
 	{
@@ -43,3 +46,5 @@ namespace disjointset
 
 	DisjointSetNode* Union(DisjointSetNode* node1, DisjointSetNode* node2, double w);
 }
+
+#endif

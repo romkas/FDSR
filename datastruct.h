@@ -1,4 +1,7 @@
 #pragma once
+
+#if RUN != 0
+
 //#include "modelFitting.h"
 #include <opencv2\core.hpp>
 //#include <vector>
@@ -39,3 +42,5 @@ namespace dtypes
 		int getNumKeys() const { return this->num_keys; }
 	};
 }
+
+#endif

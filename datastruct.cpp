@@ -1,4 +1,5 @@
-#pragma once
+#if RUN != 0
+
 #include "datastruct.h"
 
 dtypes::HashTable::HashTable(int size)
@@ -76,3 +77,4 @@ bool dtypes::HashTable::Delete(unsigned int hashvalue)
 	return true;
 }
 
+#endif

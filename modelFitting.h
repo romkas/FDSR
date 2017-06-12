@@ -1,4 +1,7 @@
 #pragma once
+
+#if RUN != 0
+
 //#include "disjointSetClass.h"
 //#include "Kruskal.h"
 //#include <algorithm>
@@ -8,41 +11,11 @@
 //#include <random>
 
 #include <vector>
+#include <list>
 
 
 namespace model
 {
-    float FitToPlane(const cv::Vec3f&, const cv::Vec4f&);
-    bool checkFit(const cv::Vec3f&, const cv::Vec4f&, float);
-
-	class GradientDescent
-	{
-		float lam;
-        int metrics;
-        //std::vector<cv::Vec3f> data;
-        
-        cv::Vec4f paramestimate;
-
-    public:
-        GradientDescent() {}
-        ~GradientDescent() {}
-
-        void SetParams(float, int);
-        
-        const cv::Vec4f& getEstimate() const;
-
-        float Apply(std::vector<cv::Vec3f>&, int, int);
-
-        enum RegularizationType
-        {
-            L2 = 0,
-			L2_LASSO,
-			L1_LASSO,
-            OTHER
-        };
-	};
-
-
 
   //  class Plane
   //  {
@@ -123,7 +96,45 @@ namespace model
 
 	//inline std::vector<float>& estimator_defaults();
 
-	float RANSAC(std::vector<cv::Vec3f>&, int, int, float, int, GradientDescent*, cv::Vec4f&,
-		long long*, long long*);
+	float fit_to_plane(const cv::Vec3f&, const cv::Vec4f&);
+	bool check_fit(const cv::Vec3f&, const cv::Vec4f&, float);
+	void estimate_plane(cv::Vec3f&, cv::Vec3f&, cv::Vec3f&, cv::Vec4f&);
+	bool check_plane_valid(cv::Vec4f&);
 
+	class LeastSquares
+	{
+	public:
+		double lam;
+		cv::Vec4f paramestimate;
+
+		LeastSquares() {}
+		~LeastSquares() {}
+
+		//void SetParams(float, int);
+
+		//const cv::Vec4f& getEstimate() const;
+
+		double Apply(std::vector<cv::Vec3f>&);
+
+		/*enum RegularizationType
+		{
+			L2 = 0,
+			L2_LASSO,
+			L1_LASSO,
+			OTHER
+		};*/
+	};
+
+	double run_ransac(cv::Mat &m, std::vector<std::list<cv::Vec2i>> &partition,
+		std::vector<double> &ransacparams, std::vector<double> &estimatorparams,
+		std::vector<cv::Vec4f> &planes, std::vector<cv::Vec3f> &vnormals, std::vector<double> &errlist,
+		std::vector<int>&);
+	void select_ransac_params(int, int *k, double *thres, double *d, std::vector<cv::Vec3f>&, cv::Vec3f&);
+	//void select_ransac_params(double*, int*, double*, double*, int, int);
+
+	double RANSAC(std::vector<cv::Vec3f>&, int, int, double, int, LeastSquares*, cv::Vec4f&/*, long long*, long long**/);
+	void pick_random_points(std::vector<int>&, int, int, int);
+	
 }
+
+#endif
